@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./MockERC20.sol";
-
-struct ReserveData {
+import "../interfaces/IAaveTypes.sol";
+struct MockReserveData {
     uint256 configuration;
     uint128 liquidityIndex;
     uint128 currentLiquidityRate;
@@ -87,8 +87,8 @@ contract MockAavePool {
     /**
      * @dev Get reserve data
      */
-    function getReserveData(address _asset) external view returns (ReserveData memory) {
-        return ReserveData({
+    function getReserveData(address _asset) external view returns (MockReserveData memory) {
+        return MockReserveData({
             configuration: 0,
             liquidityIndex: 1e27, // 1 in ray format
             currentLiquidityRate: uint128(liquidityRate),

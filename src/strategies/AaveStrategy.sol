@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "../interfaces/IAaveTypes.sol";import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/IAbunfiStrategy.sol";
 import "../mocks/MockERC20.sol";
 
@@ -44,23 +44,6 @@ interface IPoolDataProvider {
     );
 }
 
-struct ReserveData {
-    uint256 configuration;
-    uint128 liquidityIndex;
-    uint128 currentLiquidityRate;
-    uint128 variableBorrowIndex;
-    uint128 currentVariableBorrowRate;
-    uint128 currentStableBorrowRate;
-    uint40 lastUpdateTimestamp;
-    uint16 id;
-    address aTokenAddress;
-    address stableDebtTokenAddress;
-    address variableDebtTokenAddress;
-    address interestRateStrategyAddress;
-    uint128 accruedToTreasury;
-    uint128 unbacked;
-    uint128 isolationModeTotalDebt;
-}
 
 /**
  * @title AaveStrategy

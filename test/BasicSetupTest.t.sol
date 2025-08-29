@@ -7,13 +7,14 @@ import "../src/mocks/MockERC20.sol";
 import "../src/mocks/MockAavePool.sol";
 import "../src/mocks/MockComet.sol";
 
-    contract BasicSetupTest is Test {
-    event Deposit(address indexed user, uint256 amount, uint256 shares);
+contract BasicSetupTestTest is Test {
     MockERC20 public mockUSDC;
     AbunfiVault public vault;
     
     address public owner;
     address public user1;
+    
+    event Deposit(address indexed user, uint256 amount, uint256 shares);
     
     function setUp() public {
         owner = address(this);
@@ -29,6 +30,7 @@ import "../src/mocks/MockComet.sol";
         mockUSDC.mint(user1, 1000 * 10**6); // 1000 USDC
     }
     
+    // Mock USDC Tests
     function test_MockUSDC_DeploySuccessfully() public {
         assertEq(mockUSDC.name(), "Mock USDC");
         assertEq(mockUSDC.symbol(), "USDC");
@@ -40,6 +42,7 @@ import "../src/mocks/MockComet.sol";
         assertEq(balance, 1000 * 10**6);
     }
     
+    // AbunfiVault Tests
     function test_AbunfiVault_DeploySuccessfully() public {
         assertEq(address(vault.asset()), address(mockUSDC));
         assertEq(vault.MINIMUM_DEPOSIT(), 4 * 10**6); // 4 USDC
@@ -50,13 +53,12 @@ import "../src/mocks/MockComet.sol";
         
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), depositAmount);
+        
         vm.expectEmit(true, true, true, true);
         emit Deposit(user1, depositAmount, depositAmount * 1e12);
         
         vault.deposit(depositAmount);
         vm.stopPrank();
-        
-        assertEq(vault.balanceOf(user1), depositAmount);
     }
     
     function test_AbunfiVault_RejectDepositsBelowMinimum() public {
@@ -64,25 +66,66 @@ import "../src/mocks/MockComet.sol";
         
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), depositAmount);
-        vm.expectRevert("Amount below minimum");        vault.deposit(depositAmount);
+        
+        vm.expectRevert("Amount below minimum");
+        vault.deposit(depositAmount);
         vm.stopPrank();
     }
     
-    function test_MockAavePool_DeploySuccessfully() public {
+    // Mock Contracts Tests
+    function test_MockContracts_DeployMockAaveContracts() public {
         MockAavePool mockAavePool = new MockAavePool(address(mockUSDC));
+        
         assertTrue(address(mockAavePool) != address(0));
     }
     
-    function test_MockComet_DeploySuccessfully() public {
+    function test_MockContracts_DeployMockCompoundContracts() public {
         MockComet mockComet = new MockComet(address(mockUSDC));
+        
         assertTrue(address(mockComet) != address(0));
     }
     
-    function testFuzz_Deposit_ValidAmounts(uint256 amount) public {
-        // Bound the amount to reasonable values (minimum to 1M USDC)
+    // Additional Integration Tests
+    function test_Integration_VaultAndTokenInteraction() public {
+        uint256 depositAmount = 100 * 10**6; // 100 USDC
+        
+        vm.startPrank(user1);
+        mockUSDC.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount);
+        vm.stopPrank();
+        
+        assertEq(vault.balanceOf(user1), depositAmount);
+        assertEq(vault.totalAssets(), depositAmount);
+    }
+    
+    function test_Integration_MultipleUsersDeposit() public {
+        address user2 = makeAddr("user2");
+        mockUSDC.mint(user2, 500 * 10**6); // 500 USDC
+        
+        uint256 deposit1 = 100 * 10**6;
+        uint256 deposit2 = 200 * 10**6;
+        
+        // User1 deposits
+        vm.startPrank(user1);
+        mockUSDC.approve(address(vault), deposit1);
+        vault.deposit(deposit1);
+        vm.stopPrank();
+        
+        // User2 deposits
+        vm.startPrank(user2);
+        mockUSDC.approve(address(vault), deposit2);
+        vault.deposit(deposit2);
+        vm.stopPrank();
+        
+        assertEq(vault.balanceOf(user1), deposit1);
+        assertEq(vault.balanceOf(user2), deposit2);
+        assertEq(vault.totalAssets(), deposit1 + deposit2);
+    }
+    
+    // Fuzz Tests
+    function testFuzz_Deposits_ValidAmounts(uint256 amount) public {
         amount = bound(amount, vault.MINIMUM_DEPOSIT(), 1_000_000 * 10**6);
         
-        // Mint enough tokens to user
         mockUSDC.mint(user1, amount);
         
         vm.startPrank(user1);
@@ -93,13 +136,12 @@ import "../src/mocks/MockComet.sol";
         assertEq(vault.balanceOf(user1), amount);
     }
     
-    function test_RevertWhen_DepositBelowMinimum() public {
-        uint256 depositAmount = vault.MINIMUM_DEPOSIT() - 1;
+    function testFuzz_MockToken_MintAmounts(uint256 amount) public {
+        amount = bound(amount, 1, type(uint128).max);
         
-        vm.startPrank(user1);
-        mockUSDC.approve(address(vault), depositAmount);
-        vm.expectRevert("Amount below minimum");
-        vault.deposit(depositAmount);
-        vm.stopPrank();
+        address testUser = makeAddr("testUser");
+        mockUSDC.mint(testUser, amount);
+        
+        assertEq(mockUSDC.balanceOf(testUser), amount);
     }
 }

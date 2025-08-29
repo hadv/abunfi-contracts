@@ -1,0 +1,41 @@
+{
+  "name": "@abunfi/contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for the Abunfi micro-savings platform",
+  "main": "index.js",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "export-abis": "node scripts/export-abis.js",
+    "deploy:local": "forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url $TESTNET_RPC_URL --broadcast --verify",
+    "deploy:mainnet": "forge script script/Deploy.s.sol --rpc-url $MAINNET_RPC_URL --broadcast --verify"
+  },
+  "files": [
+    "src/",
+    "out/",
+    "exports/",
+    "foundry.toml",
+    "README.md"
+  ],
+  "keywords": [
+    "solidity",
+    "smart-contracts",
+    "defi",
+    "yield-farming",
+    "foundry",
+    "abunfi"
+  ],
+  "author": "Abunfi Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hadv/abunfi-contracts.git"
+  },
+  "devDependencies": {
+    "fs-extra": "^11.1.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

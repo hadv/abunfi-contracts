@@ -1,0 +1,210 @@
+name: Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run security checks daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+env:
+  FOUNDRY_DISABLE_NIGHTLY_WARNING: true
+
+jobs:
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: |
+          if [ -f "package.json" ]; then
+            if [ -f "package-lock.json" ]; then
+              npm ci
+            else
+              npm install
+            fi
+          else
+            echo "No package.json found, skipping npm install"
+            exit 0
+          fi
+
+      - name: Run npm audit
+        run: |
+          if [ -f "package.json" ]; then
+            npm audit --audit-level=moderate || echo "Audit completed with warnings"
+          else
+            echo "No package.json found, skipping npm audit"
+          fi
+
+      - name: Check for outdated packages
+        run: |
+          if [ -f "package.json" ]; then
+            npm outdated || echo "Outdated packages check completed"
+          else
+            echo "No package.json found, skipping outdated check"
+          fi
+
+  mythril-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dependencies
+        run: forge install --no-commit || true
+
+      - name: Build contracts
+        run: forge build
+
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Mythril
+        run: |
+          pip install mythril
+        continue-on-error: true
+
+      - name: Run Mythril analysis
+        run: |
+          # Analyze main contracts
+          echo "Running Mythril analysis..."
+          if command -v myth &> /dev/null; then
+            for contract in src/*.sol; do
+              if [[ -f "$contract" ]]; then
+                echo "Analyzing $contract"
+                myth analyze "$contract" || echo "Analysis failed for $contract"
+              fi
+            done
+          else
+            echo "Mythril not available, skipping analysis"
+          fi
+        continue-on-error: true
+
+  semgrep-analysis:
+    runs-on: ubuntu-latest
+    name: Semgrep Security Scan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/solidity
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true
+        if: env.SEMGREP_APP_TOKEN != ''
+
+  contract-size-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dependencies
+        run: forge install --no-commit || true
+
+      - name: Check contract sizes
+        run: |
+          forge build --sizes
+
+          # Check if any contract exceeds the 24KB limit
+          echo "Checking contract sizes..."
+          if forge build --sizes | grep -E "([2-9][5-9]|[3-9][0-9]|[1-9][0-9]{2,})\.[0-9]+ KB"; then
+            echo "❌ Some contracts exceed 24KB limit"
+            exit 1
+          else
+            echo "✅ All contracts are within size limits"
+          fi
+
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check license headers
+        run: |
+          echo "Checking for SPDX license identifiers..."
+          
+          missing_license=0
+          for file in src/**/*.sol; do
+            if [[ -f "$file" ]]; then
+              if ! grep -q "SPDX-License-Identifier" "$file"; then
+                echo "❌ Missing license identifier in $file"
+                missing_license=1
+              fi
+            fi
+          done
+          
+          if [[ $missing_license -eq 1 ]]; then
+            echo "Please add SPDX license identifiers to all Solidity files"
+            exit 1
+          else
+            echo "✅ All files have license identifiers"
+          fi
+
+  storage-layout-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dependencies
+        run: forge install --no-commit || true
+
+      - name: Build contracts
+        run: forge build
+
+      - name: Generate storage layout
+        run: |
+          echo "Generating storage layouts for upgradeable contracts..."
+
+          # Generate storage layouts for main contracts
+          for contract in src/*.sol; do
+            if [[ -f "$contract" ]]; then
+              contract_name=$(basename "$contract" .sol)
+              echo "Checking storage layout for $contract_name"
+              forge inspect "$contract_name" storage-layout --pretty || echo "Could not inspect $contract_name"
+            fi
+          done
+        continue-on-error: true

@@ -19,7 +19,7 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
     address public immutable pool; // Curve pool or Uniswap V3 pool
     address public immutable vault;
     string public name;
-    
+
     uint256 public totalDeposited;
     uint256 public lastHarvestTime;
     uint256 public riskTolerance = 50; // Default 50%
@@ -48,13 +48,8 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
     event LiquidityRemoved(address indexed pool, uint256 amount);
     event APYUpdated(address indexed pool, uint256 oldAPY, uint256 newAPY);
     event PoolAPYUpdated(uint256 indexed poolId, uint256 feeAPY, uint256 rewardAPY);
-    
-    constructor(
-        address assetAddress,
-        address _pool,
-        address _vault,
-        string memory _name
-    ) Ownable(msg.sender) {
+
+    constructor(address assetAddress, address _pool, address _vault, string memory _name) Ownable(msg.sender) {
         require(assetAddress != address(0), "Invalid asset");
         require(_pool != address(0), "Invalid pool");
         require(_vault != address(0), "Invalid vault");
@@ -65,12 +60,12 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
         name = _name;
         lastHarvestTime = block.timestamp;
     }
-    
+
     modifier onlyVault() {
         require(msg.sender == vault, "Only vault can call");
         _;
     }
-    
+
     /**
      * @dev Deposit assets into the strategy
      */
@@ -105,7 +100,7 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
         emit Withdrawn(_amount);
         emit LiquidityRemoved(pool, _amount);
     }
-    
+
     /**
      * @dev Withdraw all assets from the strategy
      */
@@ -124,7 +119,7 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
             emit LiquidityRemoved(pool, balance);
         }
     }
-    
+
     /**
      * @dev Harvest yield from the strategy
      */
@@ -146,21 +141,21 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
 
         return yield;
     }
-    
+
     /**
      * @dev Get total assets under management
      */
     function totalAssets() external view override returns (uint256) {
         return totalDeposited;
     }
-    
+
     /**
      * @dev Get current APY
      */
     function getAPY() external pure override returns (uint256) {
         return 300; // 3% APY in basis points
     }
-    
+
     /**
      * @dev Get asset address
      */
@@ -174,7 +169,7 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
     function getName() external view returns (string memory) {
         return name;
     }
-    
+
     /**
      * @dev Add liquidity to pool
      */
@@ -209,7 +204,10 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
      * @dev Calculate optimal liquidity amounts
      */
     function calculateOptimalAmounts(uint256 _amount0Desired, uint256 _amount1Desired)
-        external view returns (uint256, uint256) {
+        external
+        view
+        returns (uint256, uint256)
+    {
         // Simplified calculation - equal amounts
         uint256 optimal = (_amount0Desired + _amount1Desired) / 2;
         return (optimal, optimal);
@@ -244,13 +242,7 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
         require(_lpToken != address(0), "Invalid LP token");
         require(!pools[_pool].isActive, "Pool already exists");
 
-        pools[_pool] = Pool({
-            poolAddress: _pool,
-            poolType: "Curve",
-            apy: _apy,
-            riskScore: _riskScore,
-            isActive: true
-        });
+        pools[_pool] = Pool({poolAddress: _pool, poolType: "Curve", apy: _apy, riskScore: _riskScore, isActive: true});
         poolList.push(_pool);
 
         emit PoolAdded(_pool, "Curve");
@@ -269,13 +261,8 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
         require(_pool != address(0), "Invalid pool");
         require(!pools[_pool].isActive, "Pool already exists");
 
-        pools[_pool] = Pool({
-            poolAddress: _pool,
-            poolType: "UniswapV3",
-            apy: _apy,
-            riskScore: _riskScore,
-            isActive: true
-        });
+        pools[_pool] =
+            Pool({poolAddress: _pool, poolType: "UniswapV3", apy: _apy, riskScore: _riskScore, isActive: true});
         poolList.push(_pool);
 
         emit PoolAdded(_pool, "UniswapV3");
@@ -360,12 +347,6 @@ contract LiquidityProvidingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard
         // Simplified fee calculation
         return totalDeposited / 100; // 1% of total deposited as fees
     }
-
-
-
-
-
-
 
     /**
      * @dev Emergency withdraw function

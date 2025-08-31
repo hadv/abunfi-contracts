@@ -19,7 +19,7 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     IERC20 public immutable stakingToken; // stETH or rETH
     address public immutable vault;
     string public name;
-    
+
     uint256 public totalDeposited;
     uint256 public lastHarvestTime;
     uint256 public riskTolerance = 50; // Default 50%
@@ -48,13 +48,8 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     event RewardsHarvested(uint256 amount);
     event APYUpdated(address indexed provider, uint256 oldAPY, uint256 newAPY);
     event ExchangeRateUpdated(address indexed provider, uint256 newRate);
-    
-    constructor(
-        address assetAddress,
-        address _stakingToken,
-        address _vault,
-        string memory _name
-    ) Ownable(msg.sender) {
+
+    constructor(address assetAddress, address _stakingToken, address _vault, string memory _name) Ownable(msg.sender) {
         require(assetAddress != address(0), "Invalid asset");
         require(_stakingToken != address(0), "Invalid staking token");
         require(_vault != address(0), "Invalid vault");
@@ -65,12 +60,12 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
         name = _name;
         lastHarvestTime = block.timestamp;
     }
-    
+
     modifier onlyVault() {
         require(msg.sender == vault, "Only vault can call");
         _;
     }
-    
+
     /**
      * @dev Deposit assets into the strategy
      */
@@ -85,7 +80,7 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
         emit Deposited(_amount);
         emit Staked(address(stakingToken), _amount);
     }
-    
+
     /**
      * @dev Withdraw assets from the strategy
      */
@@ -106,7 +101,7 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
         emit Withdrawn(_amount);
         emit Unstaked(address(stakingToken), _amount);
     }
-    
+
     /**
      * @dev Withdraw all assets from the strategy
      */
@@ -125,7 +120,7 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
             emit Unstaked(address(stakingToken), balance);
         }
     }
-    
+
     /**
      * @dev Harvest yield from the strategy
      */
@@ -147,21 +142,21 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
 
         return yield;
     }
-    
+
     /**
      * @dev Get total assets under management
      */
     function totalAssets() external view override returns (uint256) {
         return totalDeposited;
     }
-    
+
     /**
      * @dev Get current APY
      */
     function getAPY() external pure override returns (uint256) {
         return 200; // 2% APY in basis points
     }
-    
+
     /**
      * @dev Get asset address
      */
@@ -175,7 +170,7 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     function getName() external view returns (string memory) {
         return name;
     }
-    
+
     /**
      * @dev Get provider count
      */
@@ -197,13 +192,8 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
         require(_underlyingToken != address(0), "Invalid underlying token");
         require(!providers[_stakingToken].isActive, "Provider already exists");
 
-        providers[_stakingToken] = Provider({
-            token: _stakingToken,
-            apy: _apy,
-            riskScore: _riskScore,
-            isActive: true,
-            exchangeRate: 1e18
-        });
+        providers[_stakingToken] =
+            Provider({token: _stakingToken, apy: _apy, riskScore: _riskScore, isActive: true, exchangeRate: 1e18});
         providerList.push(_stakingToken);
 
         emit ProviderAdded(_stakingToken);
@@ -325,10 +315,6 @@ contract LiquidStakingStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     function emitRewardsHarvested(uint256 amount) external onlyVault {
         emit RewardsHarvested(amount);
     }
-
-
-
-
 
     /**
      * @dev Emergency withdraw function

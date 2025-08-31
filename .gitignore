@@ -27,3 +27,33 @@ Thumbs.db
 # Deployment artifacts
 deployments.json
 broadcast/
+
+# Coverage reports
+coverage/
+coverage.json
+lcov.info
+
+# Gas reports
+gas-report.txt
+.gas-snapshot
+
+# Security analysis reports
+slither-report.json
+slither-report.txt
+mythril-report.json
+
+# Foundry cache
+cache_forge/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Package manager files
+package-lock.json
+yarn.lock
+
+# Build artifacts
+build/
+dist/

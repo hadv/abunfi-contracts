@@ -18,14 +18,14 @@ library StablecoinRangeManager {
 
     // Default range parameters for stablecoins
     uint256 private constant DEFAULT_RANGE_WIDTH = 50; // 0.5% range width
-    uint256 private constant TIGHT_RANGE_WIDTH = 20;   // 0.2% for very stable pairs
-    uint256 private constant WIDE_RANGE_WIDTH = 100;   // 1.0% for volatile periods
+    uint256 private constant TIGHT_RANGE_WIDTH = 20; // 0.2% for very stable pairs
+    uint256 private constant WIDE_RANGE_WIDTH = 100; // 1.0% for volatile periods
 
     struct RangeConfig {
-        uint256 rangeWidth;      // Range width in basis points
+        uint256 rangeWidth; // Range width in basis points
         uint256 rebalanceThreshold; // Threshold to trigger rebalancing
-        uint256 minLiquidity;    // Minimum liquidity to maintain
-        bool autoRebalance;      // Enable automatic rebalancing
+        uint256 minLiquidity; // Minimum liquidity to maintain
+        bool autoRebalance; // Enable automatic rebalancing
     }
 
     struct PositionInfo {
@@ -43,16 +43,17 @@ library StablecoinRangeManager {
      * @return tickLower Lower tick boundary
      * @return tickUpper Upper tick boundary
      */
-    function calculateOptimalRange(
-        int24 currentTick,
-        uint256 rangeWidth
-    ) internal pure returns (int24 tickLower, int24 tickUpper) {
+    function calculateOptimalRange(int24 currentTick, uint256 rangeWidth)
+        internal
+        pure
+        returns (int24 tickLower, int24 tickUpper)
+    {
         // Calculate tick range based on price range
         int24 tickRange = int24(uint24(rangeWidth * 100)); // Convert basis points to ticks
-        
+
         tickLower = currentTick - tickRange;
         tickUpper = currentTick + tickRange;
-        
+
         // Ensure ticks are within bounds and properly spaced
         tickLower = _alignTick(tickLower, TICK_SPACING);
         tickUpper = _alignTick(tickUpper, TICK_SPACING);
@@ -60,7 +61,7 @@ library StablecoinRangeManager {
         // Ensure ticks are within valid range
         if (tickLower < MIN_TICK) tickLower = MIN_TICK;
         if (tickUpper > MAX_TICK) tickUpper = MAX_TICK;
-        
+
         require(tickLower < tickUpper, "Invalid tick range");
     }
 
@@ -71,23 +72,22 @@ library StablecoinRangeManager {
      * @param config Range configuration
      * @return needsRebalance Whether rebalancing is needed
      */
-    function needsRebalancing(
-        int24 currentTick,
-        PositionInfo memory position,
-        RangeConfig memory config
-    ) internal pure returns (bool needsRebalance) {
+    function needsRebalancing(int24 currentTick, PositionInfo memory position, RangeConfig memory config)
+        internal
+        pure
+        returns (bool needsRebalance)
+    {
         if (!position.isActive || !config.autoRebalance) {
             return false;
         }
 
         // Calculate distance from range center
         int24 rangeCenter = (position.tickLower + position.tickUpper) / 2;
-        int24 tickDistance = currentTick > rangeCenter ? 
-            currentTick - rangeCenter : rangeCenter - currentTick;
-        
+        int24 tickDistance = currentTick > rangeCenter ? currentTick - rangeCenter : rangeCenter - currentTick;
+
         // Calculate rebalance threshold in ticks
         int24 rebalanceThresholdTicks = int24(uint24(config.rebalanceThreshold * 100));
-        
+
         return tickDistance > rebalanceThresholdTicks;
     }
 
@@ -98,10 +98,11 @@ library StablecoinRangeManager {
      * @return newTickLower New lower tick
      * @return newTickUpper New upper tick
      */
-    function calculateRebalanceRange(
-        int24 currentTick,
-        RangeConfig memory config
-    ) internal pure returns (int24 newTickLower, int24 newTickUpper) {
+    function calculateRebalanceRange(int24 currentTick, RangeConfig memory config)
+        internal
+        pure
+        returns (int24 newTickLower, int24 newTickUpper)
+    {
         return calculateOptimalRange(currentTick, config.rangeWidth);
     }
 
@@ -122,14 +123,10 @@ library StablecoinRangeManager {
         uint256 amount0Desired,
         uint256 amount1Desired,
         int24 currentTick
-    ) internal pure returns (
-        uint128 liquidity,
-        uint256 amount0,
-        uint256 amount1
-    ) {
+    ) internal pure returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
         // Simplified calculation for stablecoins (assuming 1:1 ratio)
         // In production, this would use proper Uniswap V3 math
-        
+
         if (currentTick < tickLower) {
             // Price below range, only token0 needed
             amount0 = amount0Desired;
@@ -155,10 +152,11 @@ library StablecoinRangeManager {
      * @param volume24h 24h trading volume
      * @return config Recommended range configuration
      */
-    function getRecommendedConfig(
-        uint256 volatility,
-        uint256 volume24h
-    ) internal pure returns (RangeConfig memory config) {
+    function getRecommendedConfig(uint256 volatility, uint256 volume24h)
+        internal
+        pure
+        returns (RangeConfig memory config)
+    {
         if (volatility < 10) {
             // Very stable conditions
             config = RangeConfig({
@@ -186,7 +184,8 @@ library StablecoinRangeManager {
         }
 
         // Adjust for high volume (tighter ranges for more fees)
-        if (volume24h > 10000000e6) { // > 10M USDC volume
+        if (volume24h > 10000000e6) {
+            // > 10M USDC volume
             config.rangeWidth = config.rangeWidth * 80 / 100; // 20% tighter
         }
     }

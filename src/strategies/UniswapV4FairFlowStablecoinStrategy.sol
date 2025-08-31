@@ -121,11 +121,9 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
 
         // Calculate or update position range
         if (!currentPosition.isActive) {
-            (int24 tickLower, int24 tickUpper) = StablecoinRangeManager.calculateOptimalRange(
-                currentTick,
-                rangeConfig.rangeWidth
-            );
-            
+            (int24 tickLower, int24 tickUpper) =
+                StablecoinRangeManager.calculateOptimalRange(currentTick, rangeConfig.rangeWidth);
+
             currentPosition = StablecoinRangeManager.PositionInfo({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
@@ -137,11 +135,7 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
 
         // Calculate liquidity amounts
         (uint128 liquidity, uint256 amount0, uint256 amount1) = StablecoinRangeManager.calculateLiquidityAmounts(
-            currentPosition.tickLower,
-            currentPosition.tickUpper,
-            amount0Desired,
-            amount1Desired,
-            currentTick
+            currentPosition.tickLower, currentPosition.tickUpper, amount0Desired, amount1Desired, currentTick
         );
 
         // Add liquidity to pool
@@ -190,7 +184,7 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
         // Transfer tokens back to vault
         uint256 amount0 = uint256(uint128(-delta.amount0));
         uint256 amount1 = uint256(uint128(-delta.amount1));
-        
+
         if (amount0 > 0) _asset.safeTransfer(vault, amount0);
         if (amount1 > 0) _pairedAsset.safeTransfer(vault, amount1);
 
@@ -215,7 +209,7 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
             // Transfer all tokens back to vault
             uint256 amount0 = uint256(uint128(-delta.amount0));
             uint256 amount1 = uint256(uint128(-delta.amount1));
-            
+
             if (amount0 > 0) _asset.safeTransfer(vault, amount0);
             if (amount1 > 0) _pairedAsset.safeTransfer(vault, amount1);
 
@@ -279,7 +273,7 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
      */
     function getAPY() external view override returns (uint256) {
         if (totalDeposited == 0) return 0;
-        
+
         return FeeOptimizer.estimateAPY(
             marketConditions,
             currentFee,
@@ -314,11 +308,7 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
 
         // Calculate liquidity to add
         (uint128 liquidity, uint256 amount0, uint256 amount1) = StablecoinRangeManager.calculateLiquidityAmounts(
-            currentPosition.tickLower,
-            currentPosition.tickUpper,
-            fees0,
-            fees1,
-            currentTick
+            currentPosition.tickLower, currentPosition.tickUpper, fees0, fees1, currentTick
         );
 
         if (liquidity > 0) {
@@ -370,21 +360,15 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
             (BalanceDelta memory delta,) = IPoolManager(poolManager).modifyLiquidity(poolKey, removeParams, "");
 
             // Calculate new range
-            (int24 newTickLower, int24 newTickUpper) = StablecoinRangeManager.calculateRebalanceRange(
-                currentTick,
-                rangeConfig
-            );
+            (int24 newTickLower, int24 newTickUpper) =
+                StablecoinRangeManager.calculateRebalanceRange(currentTick, rangeConfig);
 
             // Add liquidity to new range
             uint256 amount0 = uint256(uint128(-delta.amount0));
             uint256 amount1 = uint256(uint128(-delta.amount1));
 
             (uint128 newLiquidity,,) = StablecoinRangeManager.calculateLiquidityAmounts(
-                newTickLower,
-                newTickUpper,
-                amount0,
-                amount1,
-                currentTick
+                newTickLower, newTickUpper, amount0, amount1, currentTick
             );
 
             IPoolManager.ModifyLiquidityParams memory addParams = IPoolManager.ModifyLiquidityParams({
@@ -415,13 +399,11 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
     function _checkAndUpdateFees() internal {
         if (!feeConfig.dynamicEnabled) return;
 
-        if (FeeOptimizer.needsFeeUpdate(
-            lastFeeUpdateTime,
-            feeConfig.updateFrequency,
-            marketConditions,
-            currentFee,
-            feeConfig
-        )) {
+        if (
+            FeeOptimizer.needsFeeUpdate(
+                lastFeeUpdateTime, feeConfig.updateFrequency, marketConditions, currentFee, feeConfig
+            )
+        ) {
             uint24 newFee = FeeOptimizer.calculateOptimalFee(marketConditions, feeConfig);
 
             if (newFee != currentFee) {
@@ -456,12 +438,10 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
     /**
      * @dev Update market conditions (typically called by oracle or keeper)
      */
-    function updateMarketConditions(
-        uint256 _volatility,
-        uint256 _volume24h,
-        uint256 _spread,
-        uint256 _liquidity
-    ) external onlyOwner {
+    function updateMarketConditions(uint256 _volatility, uint256 _volume24h, uint256 _spread, uint256 _liquidity)
+        external
+        onlyOwner
+    {
         marketConditions.volatility = _volatility;
         marketConditions.volume24h = _volume24h;
         marketConditions.spread = _spread;
@@ -526,13 +506,11 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
     /**
      * @dev Get current position information
      */
-    function getCurrentPosition() external view returns (
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 liquidity,
-        uint256 lastUpdate,
-        bool isActive
-    ) {
+    function getCurrentPosition()
+        external
+        view
+        returns (int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 lastUpdate, bool isActive)
+    {
         return (
             currentPosition.tickLower,
             currentPosition.tickUpper,
@@ -545,22 +523,19 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
     /**
      * @dev Get strategy statistics
      */
-    function getStrategyStats() external view returns (
-        uint256 _totalDeposited,
-        uint256 _totalFeesClaimed,
-        uint256 _rebalanceCount,
-        uint256 _lastHarvestTime,
-        uint256 _lastRebalanceTime,
-        bool _emergencyMode
-    ) {
-        return (
-            totalDeposited,
-            totalFeesClaimed,
-            rebalanceCount,
-            lastHarvestTime,
-            lastRebalanceTime,
-            emergencyMode
-        );
+    function getStrategyStats()
+        external
+        view
+        returns (
+            uint256 _totalDeposited,
+            uint256 _totalFeesClaimed,
+            uint256 _rebalanceCount,
+            uint256 _lastHarvestTime,
+            uint256 _lastRebalanceTime,
+            bool _emergencyMode
+        )
+    {
+        return (totalDeposited, totalFeesClaimed, rebalanceCount, lastHarvestTime, lastRebalanceTime, emergencyMode);
     }
 
     /**
@@ -570,7 +545,7 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
         (uint160 sqrtPriceX96,,,) = IPoolManager(poolManager).getSlot0(poolKey);
 
         // Convert to price ratio (simplified)
-        uint256 currentRatio = uint256(sqrtPriceX96) * uint256(sqrtPriceX96) / (2**192);
+        uint256 currentRatio = uint256(sqrtPriceX96) * uint256(sqrtPriceX96) / (2 ** 192);
         uint256 initialRatio = 1e18; // Assume 1:1 initial ratio for stablecoins
 
         return FeeOptimizer.calculateImpermanentLoss(currentRatio, initialRatio);

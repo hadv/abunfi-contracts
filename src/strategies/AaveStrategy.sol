@@ -4,7 +4,8 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/IAaveTypes.sol";import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "../interfaces/IAaveTypes.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/IAbunfiStrategy.sol";
 import "../mocks/MockERC20.sol";
 
@@ -16,34 +17,39 @@ interface IPool {
 }
 
 interface IPoolDataProvider {
-    function getReserveData(address asset) external view returns (
-        uint256 unbacked,
-        uint256 accruedToTreasuryScaled,
-        uint256 totalAToken,
-        uint256 totalStableDebt,
-        uint256 totalVariableDebt,
-        uint256 liquidityRate,
-        uint256 variableBorrowRate,
-        uint256 stableBorrowRate,
-        uint256 averageStableBorrowRate,
-        uint256 liquidityIndex,
-        uint256 variableBorrowIndex,
-        uint40 lastUpdateTimestamp
-    );
-    
-    function getUserReserveData(address asset, address user) external view returns (
-        uint256 currentATokenBalance,
-        uint256 currentStableDebt,
-        uint256 currentVariableDebt,
-        uint256 principalStableDebt,
-        uint256 scaledVariableDebt,
-        uint256 stableBorrowRate,
-        uint256 liquidityRate,
-        uint40 stableRateLastUpdated,
-        bool usageAsCollateralEnabled
-    );
-}
+    function getReserveData(address asset)
+        external
+        view
+        returns (
+            uint256 unbacked,
+            uint256 accruedToTreasuryScaled,
+            uint256 totalAToken,
+            uint256 totalStableDebt,
+            uint256 totalVariableDebt,
+            uint256 liquidityRate,
+            uint256 variableBorrowRate,
+            uint256 stableBorrowRate,
+            uint256 averageStableBorrowRate,
+            uint256 liquidityIndex,
+            uint256 variableBorrowIndex,
+            uint40 lastUpdateTimestamp
+        );
 
+    function getUserReserveData(address asset, address user)
+        external
+        view
+        returns (
+            uint256 currentATokenBalance,
+            uint256 currentStableDebt,
+            uint256 currentVariableDebt,
+            uint256 principalStableDebt,
+            uint256 scaledVariableDebt,
+            uint256 stableBorrowRate,
+            uint256 liquidityRate,
+            uint40 stableRateLastUpdated,
+            bool usageAsCollateralEnabled
+        );
+}
 
 /**
  * @title AaveStrategy
@@ -58,14 +64,14 @@ contract AaveStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     IPool public immutable aavePool;
     IPoolDataProvider public immutable dataProvider;
     address public immutable vault;
-    
+
     uint256 public totalDeposited;
     uint256 public lastHarvestTime;
-    
+
     // Constants
     uint256 private constant RAY = 1e27;
     uint256 private constant SECONDS_PER_YEAR = 365 days;
-    
+
     // Events
     event Deposited(uint256 amount);
     event Withdrawn(uint256 amount);
@@ -76,12 +82,7 @@ contract AaveStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(
-        address assetAddress,
-        address _aavePool,
-        address _dataProvider,
-        address _vault
-    ) Ownable(msg.sender) {
+    constructor(address assetAddress, address _aavePool, address _dataProvider, address _vault) Ownable(msg.sender) {
         _asset = IERC20(assetAddress);
         aavePool = IPool(_aavePool);
         dataProvider = IPoolDataProvider(_dataProvider);
@@ -184,8 +185,8 @@ contract AaveStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
      * @dev Get current APY from Aave
      */
     function getAPY() external view override returns (uint256) {
-        (, , , , , uint256 liquidityRate, , , , , , ) = dataProvider.getReserveData(address(_asset));
-        
+        (,,,,, uint256 liquidityRate,,,,,,) = dataProvider.getReserveData(address(_asset));
+
         // Convert from ray (1e27) to basis points (10000 = 100%)
         // APY = (1 + liquidityRate/RAY)^SECONDS_PER_YEAR - 1
         // Simplified calculation for display purposes
@@ -196,21 +197,15 @@ contract AaveStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
      * @dev Get current lending rate from Aave
      */
     function getCurrentLendingRate() external view returns (uint256) {
-        (, , , , , uint256 liquidityRate, , , , , , ) = dataProvider.getReserveData(address(_asset));
+        (,,,,, uint256 liquidityRate,,,,,,) = dataProvider.getReserveData(address(_asset));
         return liquidityRate;
     }
 
     /**
      * @dev Get user reserve data from Aave
      */
-    function getUserReserveData() external view returns (
-        uint256 currentATokenBalance,
-        uint256 liquidityRate
-    ) {
-        (currentATokenBalance, , , , , , liquidityRate, , ) = dataProvider.getUserReserveData(
-            address(_asset),
-            address(this)
-        );
+    function getUserReserveData() external view returns (uint256 currentATokenBalance, uint256 liquidityRate) {
+        (currentATokenBalance,,,,,, liquidityRate,,) = dataProvider.getUserReserveData(address(_asset), address(this));
     }
 
     /**

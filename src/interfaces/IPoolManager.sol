@@ -28,39 +28,30 @@ interface IPoolManager {
     /**
      * @dev Initialize a pool
      */
-    function initialize(
-        PoolKey calldata key,
-        uint160 sqrtPriceX96,
-        bytes calldata hookData
-    ) external returns (int24 tick);
+    function initialize(PoolKey calldata key, uint160 sqrtPriceX96, bytes calldata hookData)
+        external
+        returns (int24 tick);
 
     /**
      * @dev Modify liquidity in a pool
      */
-    function modifyLiquidity(
-        PoolKey calldata key,
-        ModifyLiquidityParams calldata params,
-        bytes calldata hookData
-    ) external returns (BalanceDelta memory callerDelta, BalanceDelta memory feesAccrued);
+    function modifyLiquidity(PoolKey calldata key, ModifyLiquidityParams calldata params, bytes calldata hookData)
+        external
+        returns (BalanceDelta memory callerDelta, BalanceDelta memory feesAccrued);
 
     /**
      * @dev Swap tokens in a pool
      */
-    function swap(
-        PoolKey calldata key,
-        SwapParams calldata params,
-        bytes calldata hookData
-    ) external returns (BalanceDelta memory);
+    function swap(PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
+        external
+        returns (BalanceDelta memory);
 
     /**
      * @dev Donate to a pool
      */
-    function donate(
-        PoolKey calldata key,
-        uint256 amount0,
-        uint256 amount1,
-        bytes calldata hookData
-    ) external returns (BalanceDelta memory);
+    function donate(PoolKey calldata key, uint256 amount0, uint256 amount1, bytes calldata hookData)
+        external
+        returns (BalanceDelta memory);
 
     /**
      * @dev Get pool slot0 data
@@ -68,12 +59,7 @@ interface IPoolManager {
     function getSlot0(PoolKey calldata key)
         external
         view
-        returns (
-            uint160 sqrtPriceX96,
-            int24 tick,
-            uint24 protocolFee,
-            uint24 lpFee
-        );
+        returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee);
 
     /**
      * @dev Get pool liquidity
@@ -83,13 +69,10 @@ interface IPoolManager {
     /**
      * @dev Get position info
      */
-    function getPosition(
-        PoolKey calldata key,
-        address owner,
-        int24 tickLower,
-        int24 tickUpper,
-        bytes32 salt
-    ) external view returns (uint128 liquidity);
+    function getPosition(PoolKey calldata key, address owner, int24 tickLower, int24 tickUpper, bytes32 salt)
+        external
+        view
+        returns (uint128 liquidity);
 
     /**
      * @dev Take tokens from the pool manager

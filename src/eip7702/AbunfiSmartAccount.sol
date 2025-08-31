@@ -73,7 +73,14 @@ contract AbunfiSmartAccount {
      */
     function executeUserOperation(UserOperation calldata userOp) external {
         address paymaster = _getPaymaster();
-        require(msg.sender == paymaster || msg.sender == _getOwner(), "Unauthorized");
+        address owner = _getOwner();
+
+        // Allow owner, paymaster, or any caller if the signature is valid
+        bool isAuthorized = msg.sender == paymaster ||
+                           msg.sender == owner ||
+                           _isValidUserOperation(userOp);
+
+        require(isAuthorized, "Unauthorized");
         
         // Validate nonce
         uint256 currentNonce = _getNonce();
@@ -108,7 +115,23 @@ contract AbunfiSmartAccount {
      */
     function executeBatch(UserOperation[] calldata userOps) external {
         address paymaster = _getPaymaster();
-        require(msg.sender == paymaster || msg.sender == _getOwner(), "Unauthorized");
+        address owner = _getOwner();
+
+        // Allow owner, paymaster, or any caller if all signatures are valid
+        bool isAuthorized = msg.sender == paymaster || msg.sender == owner;
+
+        if (!isAuthorized) {
+            // Check if all user operations have valid signatures
+            isAuthorized = true;
+            for (uint256 i = 0; i < userOps.length; i++) {
+                if (!_isValidUserOperation(userOps[i])) {
+                    isAuthorized = false;
+                    break;
+                }
+            }
+        }
+
+        require(isAuthorized, "Unauthorized");
         
         uint256 currentNonce = _getNonce();
         
@@ -207,6 +230,18 @@ contract AbunfiSmartAccount {
     }
 
     // Internal functions
+    function _isValidUserOperation(UserOperation calldata userOp) internal view returns (bool) {
+        // Validate nonce
+        if (userOp.nonce != _getNonce()) {
+            return false;
+        }
+
+        // Validate signature
+        bytes32 userOpHash = _getUserOperationHash(userOp);
+        address signer = userOpHash.toEthSignedMessageHash().recover(userOp.signature);
+        return signer == _getOwner();
+    }
+
     function _getUserOperationHash(UserOperation calldata userOp) internal view returns (bytes32) {
         return keccak256(abi.encode(
             userOp.target,
@@ -218,7 +253,7 @@ contract AbunfiSmartAccount {
             userOp.gasLimit,
             userOp.paymaster,
             keccak256(userOp.paymasterData),
-            address(this),
+            _getOwner(), // Use owner address instead of contract address
             block.chainid
         ));
     }

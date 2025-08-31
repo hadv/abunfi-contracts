@@ -21,10 +21,10 @@ contract EIP7702IntegrationTest is Test {
     MockERC20 public usdc;
     
     address public owner = address(0x1001);
-    address public user1 = address(0x1002);
-    address public user2 = address(0x1003);
+    address public user1;
+    address public user2;
     address public bundlerOperator = address(0x1004);
-    
+
     uint256 public user1PrivateKey = 0x12345;
     uint256 public user2PrivateKey = 0x67890;
     
@@ -38,8 +38,12 @@ contract EIP7702IntegrationTest is Test {
     event UserOperationSponsored(address indexed account, address indexed actualGasPrice, uint256 actualGasCost, uint256 actualGasUsed);
     
     function setUp() public {
+        // Set user addresses based on private keys
+        user1 = vm.addr(user1PrivateKey);
+        user2 = vm.addr(user2PrivateKey);
+
         vm.startPrank(owner);
-        
+
         // Deploy implementation contracts
         smartAccountImpl = new AbunfiSmartAccount();
         paymaster = new EIP7702Paymaster();

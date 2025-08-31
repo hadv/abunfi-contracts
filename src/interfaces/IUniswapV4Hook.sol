@@ -11,12 +11,9 @@ interface IUniswapV4Hook {
     /**
      * @dev Called before pool initialization
      */
-    function beforeInitialize(
-        address sender,
-        PoolKey calldata key,
-        uint160 sqrtPriceX96,
-        bytes calldata hookData
-    ) external returns (bytes4);
+    function beforeInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96, bytes calldata hookData)
+        external
+        returns (bytes4);
 
     /**
      * @dev Called after pool initialization
@@ -114,5 +111,3 @@ interface IUniswapV4Hook {
         bytes calldata hookData
     ) external returns (bytes4);
 }
-
-

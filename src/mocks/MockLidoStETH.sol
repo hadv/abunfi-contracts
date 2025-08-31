@@ -10,11 +10,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract MockLidoStETH is ERC20 {
     uint256 private _totalPooledEther;
     uint256 private _totalShares;
-    
+
     mapping(address => uint256) private _shares;
-    
+
     event Submitted(address indexed sender, uint256 amount, address referral);
-    
+
     constructor() ERC20("Liquid staked Ether 2.0", "stETH") {
         _totalPooledEther = 1000000 ether; // 1M ETH
         _totalShares = 1000000 ether; // 1:1 ratio initially
@@ -25,25 +25,25 @@ contract MockLidoStETH is ERC20 {
         // Mint stETH tokens equal to ETH received
         _mint(msg.sender, msg.value);
     }
-    
+
     /**
      * @dev Submit ETH to the pool and mint stETH
      */
     function submit(address _referral) external payable returns (uint256) {
         require(msg.value > 0, "ZERO_DEPOSIT");
-        
+
         uint256 sharesAmount = getSharesByPooledEth(msg.value);
         _shares[msg.sender] += sharesAmount;
         _totalShares += sharesAmount;
         _totalPooledEther += msg.value;
-        
+
         uint256 tokensAmount = msg.value; // 1:1 for simplicity
         _mint(msg.sender, tokensAmount);
-        
+
         emit Submitted(msg.sender, msg.value, _referral);
         return tokensAmount;
     }
-    
+
     /**
      * @dev Get shares amount by pooled ETH amount
      */
@@ -53,7 +53,7 @@ contract MockLidoStETH is ERC20 {
         }
         return (_ethAmount * _totalShares) / _totalPooledEther;
     }
-    
+
     /**
      * @dev Get pooled ETH amount by shares
      */
@@ -63,28 +63,28 @@ contract MockLidoStETH is ERC20 {
         }
         return (_sharesAmount * _totalPooledEther) / _totalShares;
     }
-    
+
     /**
      * @dev Get shares of account
      */
     function sharesOf(address _account) external view returns (uint256) {
         return _shares[_account];
     }
-    
+
     /**
      * @dev Get total pooled ether
      */
     function getTotalPooledEther() external view returns (uint256) {
         return _totalPooledEther;
     }
-    
+
     /**
      * @dev Get total shares
      */
     function getTotalShares() external view returns (uint256) {
         return _totalShares;
     }
-    
+
     /**
      * @dev Mock function to simulate staking rewards
      */
@@ -101,7 +101,7 @@ contract MockLidoStETH is ERC20 {
         uint256 rewardAmount = _totalPooledEther / 100;
         _totalPooledEther += rewardAmount;
     }
-    
+
     /**
      * @dev Override transfer to handle shares properly
      */
@@ -111,7 +111,7 @@ contract MockLidoStETH is ERC20 {
         _shares[to] += sharesToTransfer;
         return super.transfer(to, amount);
     }
-    
+
     /**
      * @dev Override transferFrom to handle shares properly
      */

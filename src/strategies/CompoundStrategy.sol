@@ -9,11 +9,11 @@ import "../interfaces/IAbunfiStrategy.sol";
 
 // Compound V3 interfaces
 interface IComet {
-    function supply(address asset, uint amount) external;
-    function withdraw(address asset, uint amount) external;
+    function supply(address asset, uint256 amount) external;
+    function withdraw(address asset, uint256 amount) external;
     function balanceOf(address account) external view returns (uint256);
-    function getSupplyRate(uint utilization) external view returns (uint64);
-    function getUtilization() external view returns (uint);
+    function getSupplyRate(uint256 utilization) external view returns (uint64);
+    function getUtilization() external view returns (uint256);
     function baseToken() external view returns (address);
     function decimals() external view returns (uint8);
     function accrueAccount(address account) external;
@@ -36,14 +36,14 @@ contract CompoundStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     IComet public immutable comet; // Compound V3 market
     ICometRewards public immutable cometRewards; // Compound rewards contract
     address public immutable vault;
-    
+
     uint256 public totalDeposited;
     uint256 public lastHarvestTime;
-    
+
     // Constants
     uint256 private constant SCALE_FACTOR = 1e18;
     uint256 private constant SECONDS_PER_YEAR = 365 days;
-    
+
     // Events
     event Deposited(uint256 amount);
     event Withdrawn(uint256 amount);
@@ -55,12 +55,7 @@ contract CompoundStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(
-        address assetAddress,
-        address _comet,
-        address _cometRewards,
-        address _vault
-    ) Ownable(msg.sender) {
+    constructor(address assetAddress, address _comet, address _cometRewards, address _vault) Ownable(msg.sender) {
         _asset = IERC20(assetAddress);
         comet = IComet(_comet);
         cometRewards = ICometRewards(_cometRewards);
@@ -106,19 +101,19 @@ contract CompoundStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     function withdraw(uint256 amount) external override onlyVault nonReentrant {
         require(amount > 0, "Cannot withdraw 0");
         require(amount <= totalAssets(), "Insufficient balance");
-        
+
         // Withdraw from Compound V3
         comet.withdraw(address(_asset), amount);
-        
+
         // Transfer to vault
         SafeERC20.safeTransfer(_asset, vault, amount);
-        
+
         if (amount > totalDeposited) {
             totalDeposited = 0;
         } else {
             totalDeposited -= amount;
         }
-        
+
         emit Withdrawn(amount);
     }
 
@@ -141,23 +136,23 @@ contract CompoundStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     function harvest() external override onlyVault returns (uint256 yield) {
         // Accrue interest first
         comet.accrueAccount(address(this));
-        
+
         uint256 currentBalance = comet.balanceOf(address(this));
-        
+
         if (currentBalance > totalDeposited) {
             yield = currentBalance - totalDeposited;
             totalDeposited = currentBalance; // Update to include compounded yield
         }
-        
+
         // Claim COMP rewards if available
         _claimRewards();
-        
+
         lastHarvestTime = block.timestamp;
-        
+
         if (yield > 0) {
             emit Harvested(yield);
         }
-        
+
         return yield;
     }
 
@@ -181,11 +176,11 @@ contract CompoundStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     function getAPY() external view override returns (uint256) {
         uint256 utilization = comet.getUtilization();
         uint64 supplyRate = comet.getSupplyRate(utilization);
-        
+
         // Convert from Compound's rate format to basis points (10000 = 100%)
         // Compound rates are per second, so we need to annualize
         uint256 annualRate = uint256(supplyRate) * SECONDS_PER_YEAR;
-        
+
         // Convert to basis points (divide by 1e18 and multiply by 10000)
         return (annualRate * 10000) / SCALE_FACTOR;
     }
@@ -210,7 +205,7 @@ contract CompoundStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
      */
     function _claimRewards() internal {
         uint256 pendingRewards = cometRewards.getRewardOwed(address(comet), address(this));
-        
+
         if (pendingRewards > 0) {
             cometRewards.claim(address(comet), address(this), true);
             emit RewardsClaimed(pendingRewards);

@@ -15,38 +15,38 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
     MockERC20 public usdt;
     MockUniswapV4PoolManager public poolManager;
     MockUniswapV4Hook public hook;
-    
+
     address public owner;
     address public vault;
     address public user1;
     address public user2;
-    
+
     PoolKey public poolKey;
-    
+
     uint256 constant INITIAL_BALANCE = 1000000e6; // 1M USDC/USDT
-    uint256 constant DEPOSIT_AMOUNT = 10000e6;    // 10K USDC
-    
+    uint256 constant DEPOSIT_AMOUNT = 10000e6; // 10K USDC
+
     event Deposited(uint256 amount0, uint256 amount1, uint128 liquidity);
     event Withdrawn(uint256 amount0, uint256 amount1, uint128 liquidity);
     event Harvested(uint256 fees0, uint256 fees1);
     event Rebalanced(int24 oldTickLower, int24 oldTickUpper, int24 newTickLower, int24 newTickUpper);
     event FeeUpdated(uint24 oldFee, uint24 newFee);
     event EmergencyExit(uint256 amount0, uint256 amount1);
-    
+
     function setUp() public {
         owner = address(this);
         vault = makeAddr("vault");
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
-        
+
         // Deploy mock tokens
         usdc = new MockERC20("USD Coin", "USDC", 6);
         usdt = new MockERC20("Tether USD", "USDT", 6);
-        
+
         // Deploy mock pool manager and hook
         poolManager = new MockUniswapV4PoolManager();
         hook = new MockUniswapV4Hook();
-        
+
         // Setup pool key
         poolKey = PoolKey({
             currency0: address(usdc),
@@ -55,7 +55,7 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
             tickSpacing: 10,
             hooks: address(hook)
         });
-        
+
         // Deploy strategy
         strategy = new UniswapV4FairFlowStablecoinStrategy(
             address(usdc),
@@ -66,13 +66,13 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
             "USDC/USDT V4 FairFlow Strategy",
             poolKey
         );
-        
+
         // Setup initial balances
         usdc.mint(vault, INITIAL_BALANCE);
         usdt.mint(vault, INITIAL_BALANCE);
         usdc.mint(address(strategy), INITIAL_BALANCE);
         usdt.mint(address(strategy), INITIAL_BALANCE);
-        
+
         // Setup approvals
         vm.startPrank(vault);
         usdc.approve(address(strategy), type(uint256).max);
@@ -82,7 +82,7 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
         // Initialize the pool
         poolManager.initialize(poolKey, 79228162514264337593543950336, ""); // sqrt(1) * 2^96
     }
-    
+
     function test_Deployment() public {
         assertEq(strategy.asset(), address(usdc));
         assertEq(strategy.vault(), vault);
@@ -92,179 +92,174 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
         assertEq(strategy.totalAssets(), 0);
         assertFalse(strategy.emergencyMode());
     }
-    
+
     function test_Deposit() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         assertEq(strategy.totalAssets(), DEPOSIT_AMOUNT);
-        
+
         (,,,, bool isActive) = strategy.getCurrentPosition();
         assertTrue(isActive);
     }
-    
+
     function test_Deposit_RevertIfNotVault() public {
         vm.prank(user1);
         vm.expectRevert("Only vault can call");
         strategy.deposit(DEPOSIT_AMOUNT);
     }
-    
+
     function test_Deposit_RevertIfZeroAmount() public {
         vm.prank(vault);
         vm.expectRevert("Amount must be positive");
         strategy.deposit(0);
     }
-    
+
     function test_Withdraw() public {
         // First deposit
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         uint256 withdrawAmount = DEPOSIT_AMOUNT / 2;
-        
+
         vm.prank(vault);
         strategy.withdraw(withdrawAmount);
-        
+
         assertEq(strategy.totalAssets(), DEPOSIT_AMOUNT - withdrawAmount);
     }
-    
+
     function test_Withdraw_RevertIfInsufficientBalance() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         vm.prank(vault);
         vm.expectRevert("Insufficient balance");
         strategy.withdraw(DEPOSIT_AMOUNT + 1);
     }
-    
+
     function test_WithdrawAll() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         vm.prank(vault);
         strategy.withdrawAll();
-        
+
         assertEq(strategy.totalAssets(), 0);
-        
+
         (,,,, bool isActive) = strategy.getCurrentPosition();
         assertFalse(isActive);
     }
-    
+
     function test_Harvest() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         // Simulate time passage for fee accrual
         vm.warp(block.timestamp + 1 days);
-        
+
         vm.prank(vault);
         uint256 yield = strategy.harvest();
-        
+
         // In mock implementation, yield might be 0, but function should not revert
         assertTrue(yield >= 0);
     }
-    
+
     function test_GetAPY() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         uint256 apy = strategy.getAPY();
         assertTrue(apy >= 0);
     }
-    
+
     function test_UpdateRangeConfig() public {
         uint256 newRangeWidth = 100;
         uint256 newRebalanceThreshold = 30;
         uint256 newMinLiquidity = 1000e6;
         bool newAutoRebalance = false;
-        
-        strategy.updateRangeConfig(
-            newRangeWidth,
-            newRebalanceThreshold,
-            newMinLiquidity,
-            newAutoRebalance
-        );
-        
+
+        strategy.updateRangeConfig(newRangeWidth, newRebalanceThreshold, newMinLiquidity, newAutoRebalance);
+
         // Verify config was updated (would need getter functions in actual implementation)
         assertTrue(true); // Placeholder assertion
     }
-    
+
     function test_UpdateRangeConfig_RevertIfNotOwner() public {
         vm.prank(user1);
         vm.expectRevert();
         strategy.updateRangeConfig(100, 30, 1000e6, false);
     }
-    
+
     function test_UpdateMarketConditions() public {
         uint256 volatility = 25;
         uint256 volume24h = 1000000e6;
         uint256 spread = 10;
         uint256 liquidity = 5000000e6;
-        
+
         strategy.updateMarketConditions(volatility, volume24h, spread, liquidity);
-        
+
         // Verify conditions were updated
         assertTrue(true); // Placeholder assertion
     }
-    
+
     function test_ManualRebalance() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         strategy.manualRebalance();
-        
+
         // Should not revert
         assertTrue(true);
     }
-    
+
     function test_EmergencyExit() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         strategy.emergencyExit();
-        
+
         assertTrue(strategy.emergencyMode());
         assertEq(strategy.totalAssets(), 0);
     }
-    
+
     function test_ResumeOperations() public {
         strategy.emergencyExit();
         assertTrue(strategy.emergencyMode());
-        
+
         strategy.resumeOperations();
         assertFalse(strategy.emergencyMode());
     }
-    
+
     function test_SetMaxSlippage() public {
         uint256 newSlippage = 200; // 2%
         strategy.setMaxSlippage(newSlippage);
-        
+
         // Should not revert
         assertTrue(true);
     }
-    
+
     function test_SetMaxSlippage_RevertIfTooHigh() public {
         vm.expectRevert("Slippage too high");
         strategy.setMaxSlippage(1001); // > 10%
     }
-    
+
     function test_GetCurrentPosition() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
-        (int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 lastUpdate, bool isActive) = 
+
+        (int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 lastUpdate, bool isActive) =
             strategy.getCurrentPosition();
-        
+
         assertTrue(isActive);
         assertTrue(liquidity > 0);
         assertTrue(tickLower < tickUpper);
         assertEq(lastUpdate, block.timestamp);
     }
-    
+
     function test_GetStrategyStats() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         (
             uint256 totalDeposited,
             uint256 totalFeesClaimed,
@@ -273,7 +268,7 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
             uint256 lastRebalanceTime,
             bool emergencyMode
         ) = strategy.getStrategyStats();
-        
+
         assertEq(totalDeposited, DEPOSIT_AMOUNT);
         assertEq(totalFeesClaimed, 0);
         assertEq(rebalanceCount, 0);
@@ -281,33 +276,33 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
         assertTrue(lastRebalanceTime > 0);
         assertFalse(emergencyMode);
     }
-    
+
     function test_GetCurrentImpermanentLoss() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         uint256 il = strategy.getCurrentImpermanentLoss();
-        
+
         // For stablecoins, IL should be very low
         assertTrue(il <= 100); // <= 1%
     }
-    
+
     function test_GetNextRebalanceTime() public {
         vm.prank(vault);
         strategy.deposit(DEPOSIT_AMOUNT);
-        
+
         uint256 nextRebalance = strategy.getNextRebalanceTime();
         assertTrue(nextRebalance >= block.timestamp);
     }
-    
+
     function test_DepositInEmergencyMode() public {
         strategy.emergencyExit();
-        
+
         vm.prank(vault);
         vm.expectRevert("Emergency mode active");
         strategy.deposit(DEPOSIT_AMOUNT);
     }
-    
+
     function test_MultipleDepositsAndWithdrawals() public {
         // Multiple deposits
         vm.startPrank(vault);
@@ -399,7 +394,7 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
         uint256 smallAmount = 100e6; // 100 USDC
 
         vm.startPrank(vault);
-        for (uint i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             strategy.deposit(smallAmount);
         }
         vm.stopPrank();

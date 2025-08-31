@@ -19,7 +19,7 @@ contract MockStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     uint256 private _apy;
     uint256 public totalDeposited;
     uint256 public totalYield;
-    
+
     // Mock configuration
     uint256 public yieldRate = 100; // Yield per block
     uint256 public lastYieldBlock;
@@ -32,11 +32,7 @@ contract MockStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     event Harvested(uint256 yield);
     event YieldRateUpdated(uint256 newRate);
 
-    constructor(
-        address assetAddress,
-        string memory name_,
-        uint256 apy_
-    ) Ownable(msg.sender) {
+    constructor(address assetAddress, string memory name_, uint256 apy_) Ownable(msg.sender) {
         _asset = IERC20(assetAddress);
         _name = name_;
         _apy = apy_;
@@ -56,10 +52,10 @@ contract MockStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     function deposit(uint256 amount) external override nonReentrant {
         require(!shouldFailDeposit, "Mock: Deposit failed");
         require(amount > 0, "Cannot deposit 0");
-        
+
         SafeERC20.safeTransferFrom(_asset, msg.sender, address(this), amount);
         totalDeposited += amount;
-        
+
         emit Deposited(amount);
     }
 
@@ -70,15 +66,15 @@ contract MockStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
         require(!shouldFailWithdraw, "Mock: Withdraw failed");
         require(amount > 0, "Cannot withdraw 0");
         require(amount <= totalAssets(), "Insufficient balance");
-        
+
         if (amount > totalDeposited) {
             totalDeposited = 0;
         } else {
             totalDeposited -= amount;
         }
-        
+
         SafeERC20.safeTransfer(_asset, msg.sender, amount);
-        
+
         emit Withdrawn(amount);
     }
 
@@ -87,7 +83,7 @@ contract MockStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
      */
     function withdrawAll() external override nonReentrant {
         require(!shouldFailWithdraw, "Mock: Withdraw failed");
-        
+
         uint256 balance = totalAssets();
         if (balance > 0) {
             totalDeposited = 0;
@@ -101,14 +97,14 @@ contract MockStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
      */
     function harvest() external override nonReentrant returns (uint256 yield) {
         require(!shouldFailHarvest, "Mock: Harvest failed");
-        
+
         yield = _calculateYield();
         if (yield > 0) {
             totalYield += yield;
             totalDeposited += yield; // Compound the yield
             emit Harvested(yield);
         }
-        
+
         lastYieldBlock = block.number;
         return yield;
     }
@@ -139,7 +135,7 @@ contract MockStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
      */
     function _calculateYield() internal view returns (uint256) {
         if (totalDeposited == 0) return 0;
-        
+
         uint256 blocksPassed = block.number - lastYieldBlock;
         return (totalDeposited * yieldRate * blocksPassed) / 1000000; // Simplified yield calculation
     }
@@ -238,18 +234,8 @@ contract MockStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
     /**
      * @dev Get strategy statistics
      */
-    function getStats() external view returns (
-        uint256 deposited,
-        uint256 yield,
-        uint256 apy,
-        uint256 pendingYield
-    ) {
-        return (
-            totalDeposited,
-            totalYield,
-            _apy,
-            _calculateYield()
-        );
+    function getStats() external view returns (uint256 deposited, uint256 yield, uint256 apy, uint256 pendingYield) {
+        return (totalDeposited, totalYield, _apy, _calculateYield());
     }
 
     /**

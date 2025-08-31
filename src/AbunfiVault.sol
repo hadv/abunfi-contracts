@@ -21,12 +21,12 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
     mapping(address => uint256) public userDeposits;
     mapping(address => uint256) public userShares;
     mapping(address => uint256) public lastDepositTime;
-    
+
     uint256 public totalDeposits;
     uint256 public totalShares;
     uint256 public constant MINIMUM_DEPOSIT = 4e6; // ~$4 USDC (6 decimals)
     uint256 public constant SHARES_MULTIPLIER = 1e18;
-    
+
     // Strategy management
     IAbunfiStrategy[] public strategies;
     mapping(address => bool) public isActiveStrategy;
@@ -36,7 +36,7 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
     uint256 public reserveRatio = 1000; // 10% reserve in basis points
     uint256 public constant MAX_STRATEGIES = 10;
     uint256 public constant BASIS_POINTS = 10000;
-    
+
     // Events
     event Deposit(address indexed user, uint256 amount, uint256 shares);
     event Withdraw(address indexed user, uint256 amount, uint256 shares);
@@ -61,15 +61,13 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
         require(amount > 0, "Cannot deposit 0");
 
         // Calculate shares to mint
-        uint256 shares = totalShares == 0 ? 
-            amount * SHARES_MULTIPLIER / 1e6 : 
-            amount * totalShares / totalAssets();
+        uint256 shares = totalShares == 0 ? amount * SHARES_MULTIPLIER / 1e6 : amount * totalShares / totalAssets();
 
         // Update user state
         userDeposits[msg.sender] += amount;
         userShares[msg.sender] += shares;
         lastDepositTime[msg.sender] = block.timestamp;
-        
+
         // Update global state
         totalDeposits += amount;
         totalShares += shares;
@@ -90,15 +88,16 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
 
         // Calculate withdrawal amount
         uint256 amount = shares * totalAssets() / totalShares;
-        
+
         // Update user state
         userShares[msg.sender] -= shares;
         if (userShares[msg.sender] == 0) {
             userDeposits[msg.sender] = 0;
         } else {
-            userDeposits[msg.sender] = userDeposits[msg.sender] * userShares[msg.sender] / (userShares[msg.sender] + shares);
+            userDeposits[msg.sender] =
+                userDeposits[msg.sender] * userShares[msg.sender] / (userShares[msg.sender] + shares);
         }
-        
+
         // Update global state
         totalShares -= shares;
         if (amount > totalDeposits) {
@@ -122,13 +121,13 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
     function totalAssets() public view returns (uint256) {
         uint256 idle = asset.balanceOf(address(this));
         uint256 deployed = 0;
-        
+
         for (uint256 i = 0; i < strategies.length; i++) {
             if (isActiveStrategy[address(strategies[i])]) {
                 deployed += strategies[i].totalAssets();
             }
         }
-        
+
         return idle + deployed;
     }
 
@@ -268,13 +267,11 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Get strategy information including APY
      */
-    function getStrategyInfo(address strategy) external view returns (
-        string memory name,
-        uint256 totalAssetsAmount,
-        uint256 apy,
-        uint256 weight,
-        bool isActive
-    ) {
+    function getStrategyInfo(address strategy)
+        external
+        view
+        returns (string memory name, uint256 totalAssetsAmount, uint256 apy, uint256 weight, bool isActive)
+    {
         if (isActiveStrategy[strategy]) {
             IAbunfiStrategy strategyContract = IAbunfiStrategy(strategy);
             return (
@@ -291,13 +288,17 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Get all active strategies info
      */
-    function getAllStrategiesInfo() external view returns (
-        address[] memory addresses,
-        string[] memory names,
-        uint256[] memory totalAssetsAmounts,
-        uint256[] memory apys,
-        uint256[] memory weights
-    ) {
+    function getAllStrategiesInfo()
+        external
+        view
+        returns (
+            address[] memory addresses,
+            string[] memory names,
+            uint256[] memory totalAssetsAmounts,
+            uint256[] memory apys,
+            uint256[] memory weights
+        )
+    {
         uint256 activeCount = 0;
         for (uint256 i = 0; i < strategies.length; i++) {
             if (isActiveStrategy[address(strategies[i])]) {
@@ -475,10 +476,6 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
 
         emit StrategyAdded(_strategy);
     }
-
-
-
-
 
     function emergencyWithdraw() external onlyOwner {
         uint256 balance = asset.balanceOf(address(this));

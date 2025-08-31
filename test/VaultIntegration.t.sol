@@ -63,7 +63,7 @@ contract VaultIntegrationTest is Test {
         mockCometRewards = new MockCometRewards();
 
         // Deploy AbunfiVault
-        vault = new AbunfiVault(address(mockUSDC));
+        vault = new AbunfiVault(address(mockUSDC), address(0));
 
         // Deploy AaveStrategy
         aaveStrategy =

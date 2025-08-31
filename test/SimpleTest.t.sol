@@ -20,7 +20,7 @@ contract SimpleTestTest is Test {
         MockERC20 mockUSDC = new MockERC20("Mock USDC", "USDC", 6);
 
         // Deploy vault
-        AbunfiVault vault = new AbunfiVault(address(mockUSDC));
+        AbunfiVault vault = new AbunfiVault(address(mockUSDC), address(0));
 
         assertEq(address(vault.asset()), address(mockUSDC));
     }

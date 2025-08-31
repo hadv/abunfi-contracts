@@ -6,14 +6,16 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "./interfaces/IAbunfiStrategy.sol";
 
 /**
  * @title AbunfiVault
  * @dev Main vault contract for Abunfi micro-savings platform
  * Manages user deposits and allocates funds to yield-generating strategies
+ * Supports gasless transactions via ERC-2771 meta-transactions
  */
-contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
+contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     using SafeERC20 for IERC20;
 
     // State variables
@@ -48,8 +50,32 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
     event Rebalanced(uint256 totalRebalanced);
     event ReserveRatioUpdated(uint256 oldRatio, uint256 newRatio);
 
-    constructor(address _asset) Ownable(msg.sender) {
+    constructor(address _asset, address _trustedForwarder)
+        Ownable(msg.sender)
+        ERC2771Context(_trustedForwarder)
+    {
         asset = IERC20(_asset);
+    }
+
+    /**
+     * @dev Override required by ERC2771Context to support meta-transactions
+     */
+    function _msgSender() internal view override(Context, ERC2771Context) returns (address) {
+        return ERC2771Context._msgSender();
+    }
+
+    /**
+     * @dev Override required by ERC2771Context to support meta-transactions
+     */
+    function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    /**
+     * @dev Override required by ERC2771Context to support meta-transactions
+     */
+    function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
     }
 
     /**
@@ -60,22 +86,24 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
         require(amount >= MINIMUM_DEPOSIT, "Amount below minimum");
         require(amount > 0, "Cannot deposit 0");
 
+        address sender = _msgSender();
+
         // Calculate shares to mint
         uint256 shares = totalShares == 0 ? amount * SHARES_MULTIPLIER / 1e6 : amount * totalShares / totalAssets();
 
         // Update user state
-        userDeposits[msg.sender] += amount;
-        userShares[msg.sender] += shares;
-        lastDepositTime[msg.sender] = block.timestamp;
+        userDeposits[sender] += amount;
+        userShares[sender] += shares;
+        lastDepositTime[sender] = block.timestamp;
 
         // Update global state
         totalDeposits += amount;
         totalShares += shares;
 
         // Transfer tokens
-        asset.safeTransferFrom(msg.sender, address(this), amount);
+        asset.safeTransferFrom(sender, address(this), amount);
 
-        emit Deposit(msg.sender, amount, shares);
+        emit Deposit(sender, amount, shares);
     }
 
     /**
@@ -84,18 +112,20 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
      */
     function withdraw(uint256 shares) external nonReentrant {
         require(shares > 0, "Cannot withdraw 0 shares");
-        require(userShares[msg.sender] >= shares, "Insufficient shares");
+
+        address sender = _msgSender();
+        require(userShares[sender] >= shares, "Insufficient shares");
 
         // Calculate withdrawal amount
         uint256 amount = shares * totalAssets() / totalShares;
 
         // Update user state
-        userShares[msg.sender] -= shares;
-        if (userShares[msg.sender] == 0) {
-            userDeposits[msg.sender] = 0;
+        userShares[sender] -= shares;
+        if (userShares[sender] == 0) {
+            userDeposits[sender] = 0;
         } else {
-            userDeposits[msg.sender] =
-                userDeposits[msg.sender] * userShares[msg.sender] / (userShares[msg.sender] + shares);
+            userDeposits[sender] =
+                userDeposits[sender] * userShares[sender] / (userShares[sender] + shares);
         }
 
         // Update global state
@@ -110,9 +140,9 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable {
         _ensureLiquidity(amount);
 
         // Transfer tokens
-        asset.safeTransfer(msg.sender, amount);
+        asset.safeTransfer(sender, amount);
 
-        emit Withdraw(msg.sender, amount, shares);
+        emit Withdraw(sender, amount, shares);
     }
 
     /**

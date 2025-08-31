@@ -43,6 +43,9 @@ jobs:
         with:
           version: nightly
 
+      - name: Install dependencies
+        run: forge install --no-commit || true
+
       - name: Build contracts
         run: forge build
 
@@ -54,16 +57,22 @@ jobs:
       - name: Install Mythril
         run: |
           pip install mythril
+        continue-on-error: true
 
       - name: Run Mythril analysis
         run: |
           # Analyze main contracts
-          for contract in src/*.sol; do
-            if [[ -f "$contract" ]]; then
-              echo "Analyzing $contract"
-              myth analyze "$contract" --solc-json foundry.toml || true
-            fi
-          done
+          echo "Running Mythril analysis..."
+          if command -v myth &> /dev/null; then
+            for contract in src/*.sol; do
+              if [[ -f "$contract" ]]; then
+                echo "Analyzing $contract"
+                myth analyze "$contract" || echo "Analysis failed for $contract"
+              fi
+            done
+          else
+            echo "Mythril not available, skipping analysis"
+          fi
         continue-on-error: true
 
   semgrep-analysis:
@@ -82,6 +91,7 @@ jobs:
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
         continue-on-error: true
+        if: env.SEMGREP_APP_TOKEN != ''
 
   contract-size-check:
     runs-on: ubuntu-latest
@@ -95,18 +105,21 @@ jobs:
         with:
           version: nightly
 
+      - name: Install dependencies
+        run: forge install --no-commit || true
+
       - name: Check contract sizes
         run: |
           forge build --sizes
-          
+
           # Check if any contract exceeds the 24KB limit
           echo "Checking contract sizes..."
-          forge build --sizes | grep -E "([2-9][5-9]|[3-9][0-9]|[1-9][0-9]{2,})\.[0-9]+ KB" && {
+          if forge build --sizes | grep -E "([2-9][5-9]|[3-9][0-9]|[1-9][0-9]{2,})\.[0-9]+ KB"; then
             echo "❌ Some contracts exceed 24KB limit"
             exit 1
-          } || {
+          else
             echo "✅ All contracts are within size limits"
-          }
+          fi
 
   license-check:
     runs-on: ubuntu-latest
@@ -146,15 +159,22 @@ jobs:
         with:
           version: nightly
 
+      - name: Install dependencies
+        run: forge install --no-commit || true
+
+      - name: Build contracts
+        run: forge build
+
       - name: Generate storage layout
         run: |
           echo "Generating storage layouts for upgradeable contracts..."
-          
+
           # Generate storage layouts for main contracts
           for contract in src/*.sol; do
             if [[ -f "$contract" ]]; then
               contract_name=$(basename "$contract" .sol)
               echo "Checking storage layout for $contract_name"
-              forge inspect "$contract_name" storage-layout --pretty || true
+              forge inspect "$contract_name" storage-layout --pretty || echo "Could not inspect $contract_name"
             fi
           done
+        continue-on-error: true

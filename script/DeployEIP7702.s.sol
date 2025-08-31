@@ -119,29 +119,8 @@ contract DeployEIP7702 is Script {
         console.log("USDC Token:", usdcAddress);
         console.log("Paymaster Balance:", address(paymaster).balance);
         
-        // 8. Save deployment addresses
-        string memory deploymentInfo = string(abi.encodePacked(
-            "{\n",
-            '  "network": "', getNetworkName(), '",\n',
-            '  "chainId": ', vm.toString(block.chainid), ',\n',
-            '  "smartAccountImpl": "', vm.toString(address(smartAccountImpl)), '",\n',
-            '  "paymaster": "', vm.toString(address(paymaster)), '",\n',
-            '  "bundler": "', vm.toString(address(bundler)), '",\n',
-            '  "vault": "', vm.toString(address(vault)), '",\n',
-            '  "usdc": "', vm.toString(usdcAddress), '",\n',
-            '  "deployer": "', vm.toString(deployer), '",\n',
-            '  "timestamp": ', vm.toString(block.timestamp), '\n',
-            "}"
-        ));
-        
-        string memory filename = string(abi.encodePacked(
-            "deployments/eip7702-", 
-            vm.toString(block.chainid), 
-            ".json"
-        ));
-        
-        vm.writeFile(filename, deploymentInfo);
-        console.log("Deployment info saved to:", filename);
+        // 8. Save deployment addresses (split to avoid stack too deep)
+        _saveDeploymentInfo(smartAccountImpl, paymaster, bundler, vault, usdcAddress, deployer);
         
         // 9. Usage instructions
         console.log("\n=== USAGE INSTRUCTIONS ===");
@@ -198,5 +177,41 @@ contract DeployEIP7702 is Script {
         if (block.chainid == 420) return "optimism-goerli";
         if (block.chainid == 31337) return "localhost";
         return "unknown";
+    }
+
+    function _saveDeploymentInfo(
+        AbunfiSmartAccount smartAccountImpl,
+        EIP7702Paymaster paymaster,
+        EIP7702Bundler bundler,
+        AbunfiVault vault,
+        address usdcAddress,
+        address deployer
+    ) internal {
+        string memory deploymentInfo = string(abi.encodePacked(
+            "{\n",
+            '  "network": "', getNetworkName(), '",\n',
+            '  "chainId": ', vm.toString(block.chainid), ',\n',
+            '  "smartAccountImpl": "', vm.toString(address(smartAccountImpl)), '",\n',
+            '  "paymaster": "', vm.toString(address(paymaster)), '",\n'
+        ));
+
+        deploymentInfo = string(abi.encodePacked(
+            deploymentInfo,
+            '  "bundler": "', vm.toString(address(bundler)), '",\n',
+            '  "vault": "', vm.toString(address(vault)), '",\n',
+            '  "usdc": "', vm.toString(usdcAddress), '",\n',
+            '  "deployer": "', vm.toString(deployer), '",\n',
+            '  "timestamp": ', vm.toString(block.timestamp), '\n',
+            "}"
+        ));
+
+        string memory filename = string(abi.encodePacked(
+            "deployments/eip7702-",
+            vm.toString(block.chainid),
+            ".json"
+        ));
+
+        vm.writeFile(filename, deploymentInfo);
+        console.log("Deployment info saved to:", filename);
     }
 }

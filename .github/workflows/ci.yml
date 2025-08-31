@@ -16,9 +16,6 @@ env:
 
 jobs:
   check:
-    strategy:
-      fail-fast: true
-
     name: Foundry project
     runs-on: ubuntu-latest
     steps:
@@ -180,11 +177,15 @@ jobs:
 
       - name: Check package.json scripts
         run: |
-          if npm run --silent | grep -q "lint"; then
+          echo "Available npm scripts:"
+          npm run
+
+          if npm run --silent 2>/dev/null | grep -q "lint"; then
             echo "Running lint script"
             npm run lint
           else
-            echo "No lint script found, skipping"
+            echo "✅ No lint script found, skipping lint check"
+            echo "Consider adding a lint script to package.json for JavaScript/TypeScript files"
           fi
 
   security-check:

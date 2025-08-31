@@ -6,10 +6,16 @@
   "scripts": {
     "build": "forge build",
     "test": "forge test",
+    "test:coverage": "forge coverage",
+    "test:gas": "forge test --gas-report",
+    "format": "forge fmt",
+    "format:check": "forge fmt --check",
     "export-abis": "node scripts/export-abis.js",
     "deploy:local": "forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
     "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url $TESTNET_RPC_URL --broadcast --verify",
-    "deploy:mainnet": "forge script script/Deploy.s.sol --rpc-url $MAINNET_RPC_URL --broadcast --verify"
+    "deploy:mainnet": "forge script script/Deploy.s.sol --rpc-url $MAINNET_RPC_URL --broadcast --verify",
+    "security:slither": "slither .",
+    "security:mythril": "myth analyze src/ --solc-json foundry.toml"
   },
   "files": [
     "src/",

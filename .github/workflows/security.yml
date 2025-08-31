@@ -10,6 +10,9 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
+env:
+  FOUNDRY_DISABLE_NIGHTLY_WARNING: true
+
 jobs:
   dependency-check:
     runs-on: ubuntu-latest

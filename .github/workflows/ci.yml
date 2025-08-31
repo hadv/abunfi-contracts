@@ -13,6 +13,7 @@ concurrency:
 
 env:
   FOUNDRY_PROFILE: ci
+  FOUNDRY_DISABLE_NIGHTLY_WARNING: true
 
 jobs:
   check:
@@ -69,8 +70,10 @@ jobs:
 
       - name: Run coverage
         run: |
-          forge coverage --report summary --report lcov
+          forge coverage --report summary --report lcov --ir-minimum
         continue-on-error: false
+        env:
+          FOUNDRY_DISABLE_NIGHTLY_WARNING: true
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
@@ -99,7 +102,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Forge Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          forge coverage --report summary 2>/dev/null || echo "Coverage summary not available"
+          forge coverage --report summary --ir-minimum 2>/dev/null || echo "Coverage summary not available"
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Comment coverage on PR
@@ -113,7 +116,7 @@ jobs:
             let coverageOutput = '';
             try {
               const { execSync } = require('child_process');
-              coverageOutput = execSync('forge coverage --report summary', { encoding: 'utf8' });
+              coverageOutput = execSync('forge coverage --report summary --ir-minimum', { encoding: 'utf8' });
             } catch (error) {
               coverageOutput = 'Coverage report generation failed';
             }

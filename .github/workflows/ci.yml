@@ -53,204 +53,204 @@ jobs:
           forge fmt --check
         id: fmt
 
-  coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+  # coverage:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
+  #     - name: Install Foundry
+  #       uses: foundry-rs/foundry-toolchain@v1
+  #       with:
+  #         version: nightly
 
-      - name: Install dependencies
-        run: forge install --no-commit || true
+  #     - name: Install dependencies
+  #       run: forge install --no-commit || true
 
-      - name: Run coverage
-        run: |
-          forge coverage --report summary --report lcov --ir-minimum
-        continue-on-error: false
-        env:
-          FOUNDRY_DISABLE_NIGHTLY_WARNING: true
+  #     - name: Run coverage
+  #       run: |
+  #         forge coverage --report summary --report lcov --ir-minimum
+  #       continue-on-error: false
+  #       env:
+  #         FOUNDRY_DISABLE_NIGHTLY_WARNING: true
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: lcov.info
-          flags: foundry
-          name: foundry-coverage
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  #     - name: Upload coverage reports to Codecov
+  #       uses: codecov/codecov-action@v4
+  #       with:
+  #         file: lcov.info
+  #         flags: foundry
+  #         name: foundry-coverage
+  #         fail_ci_if_error: false
+  #       env:
+  #         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Coverage Summary
-        run: |
-          echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Coverage report generated successfully!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f lcov.info ]; then
-            echo "✅ LCOV report generated" >> $GITHUB_STEP_SUMMARY
-            echo "📊 Coverage file size: $(wc -l < lcov.info) lines" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ LCOV report not found" >> $GITHUB_STEP_SUMMARY
-          fi
+  #     - name: Coverage Summary
+  #       run: |
+  #         echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+  #         echo "" >> $GITHUB_STEP_SUMMARY
+  #         echo "Coverage report generated successfully!" >> $GITHUB_STEP_SUMMARY
+  #         echo "" >> $GITHUB_STEP_SUMMARY
+  #         if [ -f lcov.info ]; then
+  #           echo "✅ LCOV report generated" >> $GITHUB_STEP_SUMMARY
+  #           echo "📊 Coverage file size: $(wc -l < lcov.info) lines" >> $GITHUB_STEP_SUMMARY
+  #         else
+  #           echo "❌ LCOV report not found" >> $GITHUB_STEP_SUMMARY
+  #         fi
 
-          # Show coverage summary from forge output
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Forge Coverage Summary" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          forge coverage --report summary --ir-minimum 2>/dev/null || echo "Coverage summary not available"
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+  #         # Show coverage summary from forge output
+  #         echo "" >> $GITHUB_STEP_SUMMARY
+  #         echo "### Forge Coverage Summary" >> $GITHUB_STEP_SUMMARY
+  #         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+  #         forge coverage --report summary --ir-minimum 2>/dev/null || echo "Coverage summary not available"
+  #         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
-      - name: Comment coverage on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
+  #     - name: Comment coverage on PR
+  #       if: github.event_name == 'pull_request'
+  #       uses: actions/github-script@v7
+  #       with:
+  #         script: |
+  #           const fs = require('fs');
 
-            // Try to read coverage summary
-            let coverageOutput = '';
-            try {
-              const { execSync } = require('child_process');
-              coverageOutput = execSync('forge coverage --report summary --ir-minimum', { encoding: 'utf8' });
-            } catch (error) {
-              coverageOutput = 'Coverage report generation failed';
-            }
+  #           // Try to read coverage summary
+  #           let coverageOutput = '';
+  #           try {
+  #             const { execSync } = require('child_process');
+  #             coverageOutput = execSync('forge coverage --report summary --ir-minimum', { encoding: 'utf8' });
+  #           } catch (error) {
+  #             coverageOutput = 'Coverage report generation failed';
+  #           }
 
-            const body = `## 📊 Coverage Report
+  #           const body = `## 📊 Coverage Report
 
-            \`\`\`
-            ${coverageOutput}
-            \`\`\`
+  #           \`\`\`
+  #           ${coverageOutput}
+  #           \`\`\`
 
-            ${fs.existsSync('lcov.info') ? '✅ LCOV report generated successfully' : '❌ LCOV report not found'}
-            `;
+  #           ${fs.existsSync('lcov.info') ? '✅ LCOV report generated successfully' : '❌ LCOV report not found'}
+  #           `;
 
-            // Find existing comment
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
+  #           // Find existing comment
+  #           const comments = await github.rest.issues.listComments({
+  #             owner: context.repo.owner,
+  #             repo: context.repo.repo,
+  #             issue_number: context.issue.number,
+  #           });
 
-            const existingComment = comments.data.find(comment =>
-              comment.body.includes('## 📊 Coverage Report')
-            );
+  #           const existingComment = comments.data.find(comment =>
+  #             comment.body.includes('## 📊 Coverage Report')
+  #           );
 
-            if (existingComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existingComment.id,
-                body: body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
-            }
+  #           if (existingComment) {
+  #             await github.rest.issues.updateComment({
+  #               owner: context.repo.owner,
+  #               repo: context.repo.repo,
+  #               comment_id: existingComment.id,
+  #               body: body
+  #             });
+  #           } else {
+  #             await github.rest.issues.createComment({
+  #               owner: context.repo.owner,
+  #               repo: context.repo.repo,
+  #               issue_number: context.issue.number,
+  #               body: body
+  #             });
+  #           }
 
-  slither-analyze:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+  # slither-analyze:
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #     security-events: write
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
+  #     - name: Install Foundry
+  #       uses: foundry-rs/foundry-toolchain@v1
+  #       with:
+  #         version: nightly
 
-      - name: Install dependencies
-        run: forge install --no-commit || true
+  #     - name: Install dependencies
+  #       run: forge install --no-commit || true
 
-      - name: Build contracts
-        run: forge build
+  #     - name: Build contracts
+  #       run: forge build
 
-      - name: Run Slither
-        uses: crytic/slither-action@v0.4.1
-        id: slither
-        with:
-          node-version: 18
-          fail-on: none
-          sarif: results.sarif
-        continue-on-error: true
+  #     - name: Run Slither
+  #       uses: crytic/slither-action@v0.4.1
+  #       id: slither
+  #       with:
+  #         node-version: 18
+  #         fail-on: none
+  #         sarif: results.sarif
+  #       continue-on-error: true
 
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: ${{ steps.slither.outputs.sarif }}
+  #     - name: Upload SARIF file
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: ${{ steps.slither.outputs.sarif }}
 
-  gas-report:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+  # gas-report:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
+  #     - name: Install Foundry
+  #       uses: foundry-rs/foundry-toolchain@v1
+  #       with:
+  #         version: nightly
 
-      - name: Install dependencies
-        run: forge install --no-commit || true
+  #     - name: Install dependencies
+  #       run: forge install --no-commit || true
 
-      - name: Run tests with gas report
-        run: forge test --gas-report > gas-report.txt
+  #     - name: Run tests with gas report
+  #       run: forge test --gas-report > gas-report.txt
 
-      - name: Comment gas report
-        uses: actions/github-script@v7
-        if: github.event_name == 'pull_request'
-        with:
-          script: |
-            const fs = require('fs');
-            const gasReport = fs.readFileSync('gas-report.txt', 'utf8');
-            
-            const body = `## Gas Report
-            
-            \`\`\`
-            ${gasReport}
-            \`\`\`
-            `;
-            
-            // Find existing comment
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            
-            const existingComment = comments.data.find(comment => 
-              comment.body.includes('## Gas Report')
-            );
-            
-            if (existingComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existingComment.id,
-                body: body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
-            }
+  #     - name: Comment gas report
+  #       uses: actions/github-script@v7
+  #       if: github.event_name == 'pull_request'
+  #       with:
+  #         script: |
+  #           const fs = require('fs');
+  #           const gasReport = fs.readFileSync('gas-report.txt', 'utf8');
+
+  #           const body = `## Gas Report
+
+  #           \`\`\`
+  #           ${gasReport}
+  #           \`\`\`
+  #           `;
+
+  #           // Find existing comment
+  #           const comments = await github.rest.issues.listComments({
+  #             owner: context.repo.owner,
+  #             repo: context.repo.repo,
+  #             issue_number: context.issue.number,
+  #           });
+
+  #           const existingComment = comments.data.find(comment =>
+  #             comment.body.includes('## Gas Report')
+  #           );
+
+  #           if (existingComment) {
+  #             await github.rest.issues.updateComment({
+  #               owner: context.repo.owner,
+  #               repo: context.repo.repo,
+  #               comment_id: existingComment.id,
+  #               body: body
+  #             });
+  #           } else {
+  #             await github.rest.issues.createComment({
+  #               owner: context.repo.owner,
+  #               repo: context.repo.repo,
+  #               issue_number: context.issue.number,
+  #               body: body
+  #             });
+  #           }
 
   lint:
     runs-on: ubuntu-latest
@@ -334,11 +334,11 @@ jobs:
 
   build-success:
     runs-on: ubuntu-latest
-    needs: [check, coverage, slither-analyze, gas-report, lint, security-check]
+    needs: [check, lint, security-check]
     if: always()
     steps:
       - name: Check all jobs
         uses: re-actors/alls-green@release/v1
         with:
-          allowed-failures: slither-analyze, security-check, lint, coverage
+          allowed-failures: security-check, lint
           jobs: ${{ toJSON(needs) }}

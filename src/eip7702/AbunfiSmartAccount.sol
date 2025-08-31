@@ -39,16 +39,16 @@ contract AbunfiSmartAccount {
 
     // Structs
     struct UserOperation {
-        address target;           // Target contract to call
-        uint256 value;           // ETH value to send
-        bytes data;              // Call data
-        uint256 nonce;           // Account nonce
-        uint256 maxFeePerGas;    // Maximum fee per gas
+        address target; // Target contract to call
+        uint256 value; // ETH value to send
+        bytes data; // Call data
+        uint256 nonce; // Account nonce
+        uint256 maxFeePerGas; // Maximum fee per gas
         uint256 maxPriorityFeePerGas; // Maximum priority fee per gas
-        uint256 gasLimit;        // Gas limit for the operation
-        address paymaster;       // Paymaster address (can be zero)
-        bytes paymasterData;     // Paymaster-specific data
-        bytes signature;         // User signature
+        uint256 gasLimit; // Gas limit for the operation
+        address paymaster; // Paymaster address (can be zero)
+        bytes paymasterData; // Paymaster-specific data
+        bytes signature; // User signature
     }
 
     /**
@@ -59,11 +59,11 @@ contract AbunfiSmartAccount {
     function initialize(address owner, address paymaster) external {
         require(_getOwner() == address(0), "Already initialized");
         require(owner != address(0), "Invalid owner");
-        
+
         _setOwner(owner);
         _setPaymaster(paymaster);
         _setNonce(0);
-        
+
         emit AccountInitialized(owner, paymaster);
     }
 
@@ -76,34 +76,32 @@ contract AbunfiSmartAccount {
         address owner = _getOwner();
 
         // Allow owner, paymaster, or any caller if the signature is valid
-        bool isAuthorized = msg.sender == paymaster ||
-                           msg.sender == owner ||
-                           _isValidUserOperation(userOp);
+        bool isAuthorized = msg.sender == paymaster || msg.sender == owner || _isValidUserOperation(userOp);
 
         require(isAuthorized, "Unauthorized");
-        
+
         // Validate nonce
         uint256 currentNonce = _getNonce();
         if (userOp.nonce != currentNonce) {
             revert InvalidNonce();
         }
-        
+
         // Validate signature
         bytes32 userOpHash = _getUserOperationHash(userOp);
         address signer = userOpHash.toEthSignedMessageHash().recover(userOp.signature);
         if (signer != _getOwner()) {
             revert InvalidSignature();
         }
-        
+
         // Increment nonce
         _setNonce(currentNonce + 1);
         emit NonceIncremented(address(this), currentNonce + 1);
-        
+
         // Execute the operation
-        (bool success, ) = userOp.target.call{value: userOp.value}(userOp.data);
-        
+        (bool success,) = userOp.target.call{value: userOp.value}(userOp.data);
+
         emit TransactionExecuted(userOp.target, userOp.value, userOp.data, success);
-        
+
         if (!success) {
             revert TransactionFailed();
         }
@@ -132,34 +130,34 @@ contract AbunfiSmartAccount {
         }
 
         require(isAuthorized, "Unauthorized");
-        
+
         uint256 currentNonce = _getNonce();
-        
+
         for (uint256 i = 0; i < userOps.length; i++) {
             UserOperation calldata userOp = userOps[i];
-            
+
             // Validate nonce (should be sequential)
             if (userOp.nonce != currentNonce + i) {
                 revert InvalidNonce();
             }
-            
+
             // Validate signature
             bytes32 userOpHash = _getUserOperationHash(userOp);
             address signer = userOpHash.toEthSignedMessageHash().recover(userOp.signature);
             if (signer != _getOwner()) {
                 revert InvalidSignature();
             }
-            
+
             // Execute the operation
-            (bool success, ) = userOp.target.call{value: userOp.value}(userOp.data);
-            
+            (bool success,) = userOp.target.call{value: userOp.value}(userOp.data);
+
             emit TransactionExecuted(userOp.target, userOp.value, userOp.data, success);
-            
+
             if (!success) {
                 revert TransactionFailed();
             }
         }
-        
+
         // Update nonce after all operations
         _setNonce(currentNonce + userOps.length);
         emit NonceIncremented(address(this), currentNonce + userOps.length);
@@ -173,11 +171,11 @@ contract AbunfiSmartAccount {
      */
     function execute(address target, uint256 value, bytes calldata data) external {
         require(msg.sender == _getOwner(), "Only owner");
-        
-        (bool success, ) = target.call{value: value}(data);
-        
+
+        (bool success,) = target.call{value: value}(data);
+
         emit TransactionExecuted(target, value, data, success);
-        
+
         if (!success) {
             revert TransactionFailed();
         }
@@ -189,10 +187,10 @@ contract AbunfiSmartAccount {
      */
     function setPaymaster(address newPaymaster) external {
         require(msg.sender == _getOwner(), "Only owner");
-        
+
         address oldPaymaster = _getPaymaster();
         _setPaymaster(newPaymaster);
-        
+
         emit PaymasterUpdated(oldPaymaster, newPaymaster);
     }
 
@@ -243,19 +241,21 @@ contract AbunfiSmartAccount {
     }
 
     function _getUserOperationHash(UserOperation calldata userOp) internal view returns (bytes32) {
-        return keccak256(abi.encode(
-            userOp.target,
-            userOp.value,
-            keccak256(userOp.data),
-            userOp.nonce,
-            userOp.maxFeePerGas,
-            userOp.maxPriorityFeePerGas,
-            userOp.gasLimit,
-            userOp.paymaster,
-            keccak256(userOp.paymasterData),
-            _getOwner(), // Use owner address instead of contract address
-            block.chainid
-        ));
+        return keccak256(
+            abi.encode(
+                userOp.target,
+                userOp.value,
+                keccak256(userOp.data),
+                userOp.nonce,
+                userOp.maxFeePerGas,
+                userOp.maxPriorityFeePerGas,
+                userOp.gasLimit,
+                userOp.paymaster,
+                keccak256(userOp.paymasterData),
+                _getOwner(), // Use owner address instead of contract address
+                block.chainid
+            )
+        );
     }
 
     function _getOwner() internal view returns (address) {
@@ -308,7 +308,7 @@ contract AbunfiSmartAccount {
 
     // Fallback and receive functions
     receive() external payable {}
-    
+
     fallback() external payable {
         // Allow the account to receive calls and ETH
     }

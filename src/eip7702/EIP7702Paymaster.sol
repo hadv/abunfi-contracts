@@ -17,10 +17,7 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
 
     // Events
     event UserOperationSponsored(
-        address indexed account,
-        address indexed actualGasPrice,
-        uint256 actualGasCost,
-        uint256 actualGasUsed
+        address indexed account, address indexed actualGasPrice, uint256 actualGasCost, uint256 actualGasUsed
     );
     event PolicyUpdated(address indexed account, SponsorshipPolicy policy);
     event GlobalPolicyUpdated(SponsorshipPolicy policy);
@@ -30,42 +27,42 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
 
     // Structs
     struct SponsorshipPolicy {
-        uint256 dailyGasLimit;        // Daily gas limit in wei
-        uint256 perTxGasLimit;        // Per-transaction gas limit in wei
-        uint256 dailyTxLimit;         // Daily transaction count limit
-        bool requiresWhitelist;       // Whether account needs to be whitelisted
-        bool isActive;                // Whether sponsorship is active
+        uint256 dailyGasLimit; // Daily gas limit in wei
+        uint256 perTxGasLimit; // Per-transaction gas limit in wei
+        uint256 dailyTxLimit; // Daily transaction count limit
+        bool requiresWhitelist; // Whether account needs to be whitelisted
+        bool isActive; // Whether sponsorship is active
     }
 
     struct AccountState {
-        uint256 dailyGasUsed;         // Gas used today
-        uint256 dailyTxCount;         // Transactions today
-        uint256 lastResetTime;        // Last time daily limits were reset
-        bool isWhitelisted;           // Whether account is whitelisted
+        uint256 dailyGasUsed; // Gas used today
+        uint256 dailyTxCount; // Transactions today
+        uint256 lastResetTime; // Last time daily limits were reset
+        bool isWhitelisted; // Whether account is whitelisted
         SponsorshipPolicy customPolicy; // Custom policy for this account
     }
 
     struct UserOperationContext {
-        address account;              // The delegated account
-        uint256 maxFeePerGas;        // Maximum fee per gas
-        uint256 gasLimit;            // Gas limit for the operation
-        bytes signature;             // Paymaster signature (if required)
+        address account; // The delegated account
+        uint256 maxFeePerGas; // Maximum fee per gas
+        uint256 gasLimit; // Gas limit for the operation
+        bytes signature; // Paymaster signature (if required)
     }
 
     // State variables
     mapping(address => AccountState) public accountStates;
     SponsorshipPolicy public globalPolicy;
-    
+
     // Whitelisted accounts for premium sponsorship
     mapping(address => bool) public whitelistedAccounts;
-    
+
     // Trusted bundlers that can call this paymaster
     mapping(address => bool) public trustedBundlers;
-    
+
     // Emergency controls
     bool public paused = false;
     uint256 public constant RESET_PERIOD = 24 hours;
-    
+
     // Default policies
     uint256 public constant DEFAULT_DAILY_GAS_LIMIT = 0.1 ether; // ~$250 at 2500 ETH
     uint256 public constant DEFAULT_PER_TX_GAS_LIMIT = 0.01 ether; // ~$25 per tx
@@ -104,25 +101,25 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
         UserOperationContext calldata context
     ) external view returns (bool success, uint256 gasPrice) {
         if (paused) return (false, 0);
-        
+
         // Get effective policy for this account
         SponsorshipPolicy memory policy = _getEffectivePolicy(context.account);
-        
+
         if (!policy.isActive) return (false, 0);
-        
+
         // Check whitelist requirement
         if (policy.requiresWhitelist && !accountStates[context.account].isWhitelisted) {
             return (false, 0);
         }
-        
+
         // Estimate gas cost
         uint256 estimatedGasCost = userOp.gasLimit * userOp.maxFeePerGas;
-        
+
         // Check per-transaction limit
         if (estimatedGasCost > policy.perTxGasLimit) {
             return (false, 0);
         }
-        
+
         // Check daily limits (with potential reset)
         AccountState memory state = accountStates[context.account];
         if (block.timestamp >= state.lastResetTime + RESET_PERIOD) {
@@ -130,22 +127,22 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
             state.dailyGasUsed = 0;
             state.dailyTxCount = 0;
         }
-        
+
         // Check daily gas limit
         if (state.dailyGasUsed + estimatedGasCost > policy.dailyGasLimit) {
             return (false, 0);
         }
-        
+
         // Check daily transaction limit
         if (state.dailyTxCount >= policy.dailyTxLimit) {
             return (false, 0);
         }
-        
+
         // Check paymaster balance
         if (address(this).balance < estimatedGasCost) {
             return (false, 0);
         }
-        
+
         return (true, userOp.maxFeePerGas);
     }
 
@@ -160,27 +157,21 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
         UserOperationContext calldata context,
         uint256 actualGasUsed
     ) external onlyTrustedBundler whenNotPaused nonReentrant {
-        
         // Validate the operation can be sponsored
         (bool canSponsor, uint256 gasPrice) = this.validateUserOperation(userOp, context);
         require(canSponsor, "Operation cannot be sponsored");
-        
+
         // Calculate actual gas cost
         uint256 actualGasCost = actualGasUsed * gasPrice;
         require(address(this).balance >= actualGasCost, "Insufficient paymaster balance");
-        
+
         // Update account state
         _updateAccountState(context.account, actualGasCost);
-        
+
         // Transfer gas cost to bundler
         payable(msg.sender).transfer(actualGasCost);
-        
-        emit UserOperationSponsored(
-            context.account,
-            msg.sender,
-            actualGasCost,
-            actualGasUsed
-        );
+
+        emit UserOperationSponsored(context.account, msg.sender, actualGasCost, actualGasUsed);
     }
 
     /**
@@ -194,36 +185,28 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
         UserOperationContext[] calldata contexts,
         uint256[] calldata actualGasUsed
     ) external onlyTrustedBundler whenNotPaused nonReentrant {
-        require(
-            userOps.length == contexts.length && contexts.length == actualGasUsed.length,
-            "Array length mismatch"
-        );
-        
+        require(userOps.length == contexts.length && contexts.length == actualGasUsed.length, "Array length mismatch");
+
         uint256 totalGasCost = 0;
-        
+
         // Validate all operations first
         for (uint256 i = 0; i < userOps.length; i++) {
             (bool canSponsor, uint256 gasPrice) = this.validateUserOperation(userOps[i], contexts[i]);
             require(canSponsor, "Operation cannot be sponsored");
-            
+
             totalGasCost += actualGasUsed[i] * gasPrice;
         }
-        
+
         require(address(this).balance >= totalGasCost, "Insufficient paymaster balance");
-        
+
         // Execute sponsorship for all operations
         for (uint256 i = 0; i < userOps.length; i++) {
             uint256 gasCost = actualGasUsed[i] * userOps[i].maxFeePerGas;
             _updateAccountState(contexts[i].account, gasCost);
-            
-            emit UserOperationSponsored(
-                contexts[i].account,
-                msg.sender,
-                gasCost,
-                actualGasUsed[i]
-            );
+
+            emit UserOperationSponsored(contexts[i].account, msg.sender, gasCost, actualGasUsed[i]);
         }
-        
+
         // Transfer total gas cost to bundler
         payable(msg.sender).transfer(totalGasCost);
     }
@@ -233,14 +216,14 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
      */
     function _updateAccountState(address account, uint256 gasCost) internal {
         AccountState storage state = accountStates[account];
-        
+
         // Reset daily counters if needed
         if (block.timestamp >= state.lastResetTime + RESET_PERIOD) {
             state.dailyGasUsed = 0;
             state.dailyTxCount = 0;
             state.lastResetTime = block.timestamp;
         }
-        
+
         // Update counters
         state.dailyGasUsed += gasCost;
         state.dailyTxCount += 1;
@@ -251,18 +234,18 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
      */
     function _getEffectivePolicy(address account) internal view returns (SponsorshipPolicy memory) {
         AccountState memory state = accountStates[account];
-        
+
         // Use custom policy if set and active
         if (state.customPolicy.isActive) {
             return state.customPolicy;
         }
-        
+
         // Use global policy
         return globalPolicy;
     }
 
     // Admin functions
-    
+
     /**
      * @dev Set custom policy for an account
      */
@@ -320,7 +303,7 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
     }
 
     // View functions
-    
+
     function getAccountState(address account) external view returns (AccountState memory) {
         return accountStates[account];
     }
@@ -329,19 +312,21 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
         return _getEffectivePolicy(account);
     }
 
-    function getRemainingDailyAllowance(address account) external view returns (uint256 gasAllowance, uint256 txAllowance) {
+    function getRemainingDailyAllowance(address account)
+        external
+        view
+        returns (uint256 gasAllowance, uint256 txAllowance)
+    {
         SponsorshipPolicy memory policy = _getEffectivePolicy(account);
         AccountState memory state = accountStates[account];
-        
+
         // Reset if needed
         if (block.timestamp >= state.lastResetTime + RESET_PERIOD) {
             gasAllowance = policy.dailyGasLimit;
             txAllowance = policy.dailyTxLimit;
         } else {
-            gasAllowance = policy.dailyGasLimit > state.dailyGasUsed ? 
-                policy.dailyGasLimit - state.dailyGasUsed : 0;
-            txAllowance = policy.dailyTxLimit > state.dailyTxCount ? 
-                policy.dailyTxLimit - state.dailyTxCount : 0;
+            gasAllowance = policy.dailyGasLimit > state.dailyGasUsed ? policy.dailyGasLimit - state.dailyGasUsed : 0;
+            txAllowance = policy.dailyTxLimit > state.dailyTxCount ? policy.dailyTxLimit - state.dailyTxCount : 0;
         }
     }
 

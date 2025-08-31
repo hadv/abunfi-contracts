@@ -50,10 +50,7 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     event Rebalanced(uint256 totalRebalanced);
     event ReserveRatioUpdated(uint256 oldRatio, uint256 newRatio);
 
-    constructor(address _asset, address _trustedForwarder)
-        Ownable(msg.sender)
-        ERC2771Context(_trustedForwarder)
-    {
+    constructor(address _asset, address _trustedForwarder) Ownable(msg.sender) ERC2771Context(_trustedForwarder) {
         asset = IERC20(_asset);
     }
 
@@ -124,8 +121,7 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         if (userShares[sender] == 0) {
             userDeposits[sender] = 0;
         } else {
-            userDeposits[sender] =
-                userDeposits[sender] * userShares[sender] / (userShares[sender] + shares);
+            userDeposits[sender] = userDeposits[sender] * userShares[sender] / (userShares[sender] + shares);
         }
 
         // Update global state

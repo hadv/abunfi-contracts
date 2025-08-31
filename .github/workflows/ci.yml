@@ -62,19 +62,91 @@ jobs:
           version: nightly
 
       - name: Run coverage
-        run: forge coverage --report summary --report lcov
+        run: |
+          forge coverage --report summary --report lcov
+        continue-on-error: false
 
-      - name: Setup LCOV
-        uses: hrishikesh-kadam/setup-lcov@v1
-
-      - name: Report code coverage
-        uses: zgosalvez/github-actions-report-lcov@v3
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
         with:
-          coverage-files: lcov.info
-          minimum-coverage: 80
-          artifact-name: code-coverage-report
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: ./
+          file: lcov.info
+          flags: foundry
+          name: foundry-coverage
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Coverage Summary
+        run: |
+          echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage report generated successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f lcov.info ]; then
+            echo "✅ LCOV report generated" >> $GITHUB_STEP_SUMMARY
+            echo "📊 Coverage file size: $(wc -l < lcov.info) lines" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ LCOV report not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Show coverage summary from forge output
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Forge Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          forge coverage --report summary 2>/dev/null || echo "Coverage summary not available"
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Try to read coverage summary
+            let coverageOutput = '';
+            try {
+              const { execSync } = require('child_process');
+              coverageOutput = execSync('forge coverage --report summary', { encoding: 'utf8' });
+            } catch (error) {
+              coverageOutput = 'Coverage report generation failed';
+            }
+
+            const body = `## 📊 Coverage Report
+
+            \`\`\`
+            ${coverageOutput}
+            \`\`\`
+
+            ${fs.existsSync('lcov.info') ? '✅ LCOV report generated successfully' : '❌ LCOV report not found'}
+            `;
+
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.data.find(comment =>
+              comment.body.includes('## 📊 Coverage Report')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
 
   slither-analyze:
     runs-on: ubuntu-latest

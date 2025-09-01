@@ -20,7 +20,7 @@ import "../src/mocks/MockCometRewards.sol";
  */
 contract Deploy is Script {
     // Configuration constants
-    uint256 public constant INITIAL_USDC_MINT = 10_000_000 * 10 ** 6; // 10M USDC for testing
+    uint256 public constant INITIAL_USDC_MINT = 10_000_000 * 10**6; // 10M USDC for testing
     uint256 public constant STRATEGY_WEIGHT = 3333; // ~33.33% allocation per strategy
     uint256 public constant AAVE_RISK_SCORE = 20; // Low risk
     uint256 public constant COMPOUND_RISK_SCORE = 25; // Low-medium risk
@@ -88,7 +88,11 @@ contract Deploy is Script {
 
     function _deployUSDC() internal returns (address) {
         console.log("\n1. Deploying USDC...");
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> e25290f (feat: Add comprehensive deployment setup for Sepolia testnet)
         if (block.chainid == 1) {
             // Mainnet USDC
             address mainnetUSDC = 0xA0B86a33E6441e6C8c7f1C7C8C7F1C7C8C7F1C7c;
@@ -99,7 +103,11 @@ contract Deploy is Script {
             MockERC20 mockUSDC = new MockERC20("USD Coin", "USDC", 6);
             mockUSDC.mint(msg.sender, INITIAL_USDC_MINT);
             console.log("Mock USDC deployed at:", address(mockUSDC));
+<<<<<<< HEAD
             console.log("Minted", INITIAL_USDC_MINT / 10 ** 6, "USDC to deployer");
+=======
+            console.log("Minted", INITIAL_USDC_MINT / 10**6, "USDC to deployer");
+>>>>>>> e25290f (feat: Add comprehensive deployment setup for Sepolia testnet)
             return address(mockUSDC);
         } else {
             // Other networks - deploy mock USDC
@@ -126,7 +134,11 @@ contract Deploy is Script {
 
     function _deployMockAave(address usdcAddress) internal returns (address, address) {
         console.log("\n4. Deploying Mock Aave contracts...");
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> e25290f (feat: Add comprehensive deployment setup for Sepolia testnet)
         if (block.chainid == 11155111) {
             // For Sepolia, we could use real Aave addresses or mocks
             // Using mocks for simplicity and testing
@@ -165,6 +177,7 @@ contract Deploy is Script {
         console.log("\n5. Deploying Mock Compound contracts...");
         MockComet comet = new MockComet(usdcAddress);
         MockCometRewards cometRewards = new MockCometRewards();
+<<<<<<< HEAD
 
         console.log("Mock Compound Comet deployed at:", address(comet));
         console.log("Mock Compound Rewards deployed at:", address(cometRewards));
@@ -176,22 +189,47 @@ contract Deploy is Script {
         internal
         returns (AaveStrategy)
     {
+=======
+        
+        console.log("Mock Compound Comet deployed at:", address(comet));
+        console.log("Mock Compound Rewards deployed at:", address(cometRewards));
+        
+        return (address(comet), address(cometRewards));
+    }
+
+    function _deployAaveStrategy(
+        address usdcAddress,
+        address aavePool,
+        address dataProvider,
+        address vault
+    ) internal returns (AaveStrategy) {
+>>>>>>> e25290f (feat: Add comprehensive deployment setup for Sepolia testnet)
         console.log("\n6. Deploying AaveStrategy...");
         AaveStrategy strategy = new AaveStrategy(usdcAddress, aavePool, dataProvider, vault);
         console.log("AaveStrategy deployed at:", address(strategy));
         return strategy;
     }
 
+<<<<<<< HEAD
     function _deployCompoundStrategy(address usdcAddress, address comet, address cometRewards, address vault)
         internal
         returns (CompoundStrategy)
     {
+=======
+    function _deployCompoundStrategy(
+        address usdcAddress,
+        address comet,
+        address cometRewards,
+        address vault
+    ) internal returns (CompoundStrategy) {
+>>>>>>> e25290f (feat: Add comprehensive deployment setup for Sepolia testnet)
         console.log("\n7. Deploying CompoundStrategy...");
         CompoundStrategy strategy = new CompoundStrategy(usdcAddress, comet, cometRewards, vault);
         console.log("CompoundStrategy deployed at:", address(strategy));
         return strategy;
     }
 
+<<<<<<< HEAD
     function _deployLiquidStakingStrategy(address usdcAddress, address vault)
         internal
         returns (LiquidStakingStrategy)
@@ -202,6 +240,22 @@ contract Deploy is Script {
         MockERC20 mockStETH = new MockERC20("Liquid Staked ETH", "stETH", 18);
         LiquidStakingStrategy strategy =
             new LiquidStakingStrategy(usdcAddress, address(mockStETH), vault, "Liquid Staking Strategy");
+=======
+    function _deployLiquidStakingStrategy(
+        address usdcAddress,
+        address vault
+    ) internal returns (LiquidStakingStrategy) {
+        console.log("\n8. Deploying LiquidStakingStrategy...");
+        
+        // Deploy mock staking token for testing
+        MockERC20 mockStETH = new MockERC20("Liquid Staked ETH", "stETH", 18);
+        LiquidStakingStrategy strategy = new LiquidStakingStrategy(
+            usdcAddress,
+            address(mockStETH),
+            vault,
+            "Liquid Staking Strategy"
+        );
+>>>>>>> e25290f (feat: Add comprehensive deployment setup for Sepolia testnet)
         console.log("LiquidStakingStrategy deployed at:", address(strategy));
         console.log("Mock stETH deployed at:", address(mockStETH));
         return strategy;
@@ -224,6 +278,7 @@ contract Deploy is Script {
 
         // Add strategies to strategy manager with risk parameters
         strategyManager.addStrategy(
+<<<<<<< HEAD
             address(aaveStrategy), STRATEGY_WEIGHT, AAVE_RISK_SCORE, MAX_ALLOCATION, MIN_ALLOCATION
         );
 
@@ -233,6 +288,29 @@ contract Deploy is Script {
 
         strategyManager.addStrategy(
             address(liquidStakingStrategy), STRATEGY_WEIGHT, LIQUID_STAKING_RISK_SCORE, MAX_ALLOCATION, MIN_ALLOCATION
+=======
+            address(aaveStrategy),
+            STRATEGY_WEIGHT,
+            AAVE_RISK_SCORE,
+            MAX_ALLOCATION,
+            MIN_ALLOCATION
+        );
+        
+        strategyManager.addStrategy(
+            address(compoundStrategy),
+            STRATEGY_WEIGHT,
+            COMPOUND_RISK_SCORE,
+            MAX_ALLOCATION,
+            MIN_ALLOCATION
+        );
+        
+        strategyManager.addStrategy(
+            address(liquidStakingStrategy),
+            STRATEGY_WEIGHT,
+            LIQUID_STAKING_RISK_SCORE,
+            MAX_ALLOCATION,
+            MIN_ALLOCATION
+>>>>>>> e25290f (feat: Add comprehensive deployment setup for Sepolia testnet)
         );
         console.log("Added strategies to strategy manager with risk parameters");
 
@@ -251,6 +329,7 @@ contract Deploy is Script {
         string memory deploymentInfo = string(
             abi.encodePacked(
                 "{\n",
+<<<<<<< HEAD
                 '  "network": "',
                 getNetworkName(),
                 '",\n',
@@ -290,6 +369,29 @@ contract Deploy is Script {
         );
 
         string memory filename = string(abi.encodePacked("deployments/core-", vm.toString(block.chainid), ".json"));
+=======
+                '  "network": "', getNetworkName(), '",\n',
+                '  "chainId": ', vm.toString(block.chainid), ",\n",
+                '  "deployer": "', vm.toString(deployer), '",\n',
+                '  "timestamp": ', vm.toString(block.timestamp), ",\n",
+                '  "contracts": {\n',
+                '    "usdc": "', vm.toString(usdc), '",\n',
+                '    "vault": "', vm.toString(vault), '",\n',
+                '    "strategyManager": "', vm.toString(strategyManager), '",\n',
+                '    "strategies": {\n',
+                '      "aave": "', vm.toString(aaveStrategy), '",\n',
+                '      "compound": "', vm.toString(compoundStrategy), '",\n',
+                '      "liquidStaking": "', vm.toString(liquidStakingStrategy), '"\n',
+                '    }\n',
+                '  }\n',
+                '}'
+            )
+        );
+
+        string memory filename = string(
+            abi.encodePacked("deployments/core-", vm.toString(block.chainid), ".json")
+        );
+>>>>>>> e25290f (feat: Add comprehensive deployment setup for Sepolia testnet)
 
         vm.writeFile(filename, deploymentInfo);
         console.log("Deployment info saved to:", filename);
@@ -324,6 +426,7 @@ contract Deploy is Script {
         if (block.chainid != 31337) {
             console.log("\n=== VERIFICATION COMMANDS ===");
             console.log("forge verify-contract", vault, "src/AbunfiVault.sol:AbunfiVault --chain-id", block.chainid);
+<<<<<<< HEAD
             console.log(
                 "forge verify-contract",
                 strategyManager,
@@ -336,6 +439,10 @@ contract Deploy is Script {
                 "src/strategies/AaveStrategy.sol:AaveStrategy --chain-id",
                 block.chainid
             );
+=======
+            console.log("forge verify-contract", strategyManager, "src/StrategyManager.sol:StrategyManager --chain-id", block.chainid);
+            console.log("forge verify-contract", aaveStrategy, "src/strategies/AaveStrategy.sol:AaveStrategy --chain-id", block.chainid);
+>>>>>>> e25290f (feat: Add comprehensive deployment setup for Sepolia testnet)
         }
 
         console.log("\n=== FRONTEND CONFIG ===");

@@ -38,7 +38,7 @@ contract DeploySepolia is Script {
     uint256 public constant MIN_ALLOCATION = 1000; // 10% min allocation
 
     // Test user addresses for funding
-    address[] public testUsers = [
+    address[] internal testUsers = [
         0x1234567890123456789012345678901234567890,
         0x2345678901234567890123456789012345678901,
         0x3456789012345678901234567890123456789012

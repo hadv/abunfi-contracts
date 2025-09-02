@@ -87,7 +87,22 @@ contract RiskBasedSystemTest is Test {
         vm.prank(charlie);
         usdc.approve(address(vault), type(uint256).max);
     }
-    
+
+    // Helper functions for deposits with approvals
+    function _approveAndDeposit(address user, uint256 amount) internal {
+        vm.startPrank(user);
+        usdc.approve(address(vault), amount);
+        vault.deposit(amount);
+        vm.stopPrank();
+    }
+
+    function _approveAndDepositWithRisk(address user, uint256 amount, RiskProfileManager.RiskLevel riskLevel) internal {
+        vm.startPrank(user);
+        usdc.approve(address(vault), amount);
+        vault.depositWithRiskLevel(amount, riskLevel);
+        vm.stopPrank();
+    }
+
     function _setupStrategies() internal {
         // Add strategies to strategy manager
         strategyManager.addStrategy(
@@ -201,23 +216,27 @@ contract RiskBasedSystemTest is Test {
     
     function test_DepositWithDefaultRisk() public {
         uint256 depositAmount = 100e6; // $100
-        
-        vm.prank(alice);
+
+        vm.startPrank(alice);
+        usdc.approve(address(vault), depositAmount);
         vault.deposit(depositAmount);
-        
+        vm.stopPrank();
+
         assertEq(vault.userDeposits(alice), depositAmount);
         assertGt(vault.userShares(alice), 0);
     }
     
     function test_DepositWithSpecificRisk() public {
         uint256 depositAmount = 100e6; // $100
-        
-        vm.prank(alice);
+
+        vm.startPrank(alice);
+        usdc.approve(address(vault), depositAmount);
         vault.depositWithRiskLevel(depositAmount, RiskProfileManager.RiskLevel.HIGH);
-        
+        vm.stopPrank();
+
         assertEq(vault.userDeposits(alice), depositAmount);
         assertGt(vault.userShares(alice), 0);
-        
+
         // Check that risk level was set
         RiskProfileManager.RiskLevel level = riskManager.getUserRiskLevel(alice);
         assertEq(uint256(level), uint256(RiskProfileManager.RiskLevel.HIGH));
@@ -227,10 +246,9 @@ contract RiskBasedSystemTest is Test {
         vm.prank(alice);
         vm.expectRevert("Amount below minimum");
         vault.deposit(MIN_DEPOSIT - 1);
-        
+
         // Should work with minimum deposit
-        vm.prank(alice);
-        vault.deposit(MIN_DEPOSIT);
+        _approveAndDeposit(alice, MIN_DEPOSIT);
         assertEq(vault.userDeposits(alice), MIN_DEPOSIT);
     }
     
@@ -239,23 +257,21 @@ contract RiskBasedSystemTest is Test {
     function test_RequestWithdrawal() public {
         // First deposit
         uint256 depositAmount = 100e6;
-        vm.prank(alice);
-        vault.deposit(depositAmount);
-        
+        _approveAndDeposit(alice, depositAmount);
+
         uint256 shares = vault.userShares(alice);
-        
+
         // Request withdrawal
         vm.prank(alice);
         uint256 requestId = vault.requestWithdrawal(shares / 2);
-        
+
         assertEq(requestId, 0); // First request should have ID 0
     }
     
     function test_InstantWithdrawal() public {
         // First deposit
         uint256 depositAmount = 100e6;
-        vm.prank(alice);
-        vault.deposit(depositAmount);
+        _approveAndDeposit(alice, depositAmount);
         
         uint256 shares = vault.userShares(alice);
         uint256 initialBalance = usdc.balanceOf(alice);
@@ -332,7 +348,7 @@ contract RiskBasedSystemTest is Test {
 
     function test_ZeroDeposit() public {
         vm.prank(alice);
-        vm.expectRevert("Cannot deposit 0");
+        vm.expectRevert("Amount below minimum");
         vault.deposit(0);
     }
 

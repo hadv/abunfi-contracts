@@ -42,16 +42,21 @@ contract RiskBasedSystemTest is Test {
         
         // Deploy risk management contracts
         riskManager = new RiskProfileManager();
-        withdrawalManager = new WithdrawalManager(address(0), address(usdc)); // Vault address set later
         strategyManager = new StrategyManager(address(riskManager));
-        
-        // Deploy vault
+
+        // Deploy vault first (without withdrawal manager)
         vault = new AbunfiVault(
             address(usdc),
             address(0), // No trusted forwarder for testing
             address(riskManager),
-            address(withdrawalManager)
+            address(0) // Withdrawal manager set later
         );
+
+        // Deploy withdrawal manager with correct vault address
+        withdrawalManager = new WithdrawalManager(address(vault), address(usdc));
+
+        // Update vault with withdrawal manager address
+        vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
         
         // Deploy mock strategies
         lowRiskStrategy = new MockStrategy(address(usdc), "Low Risk Strategy", 400);
@@ -288,8 +293,7 @@ contract RiskBasedSystemTest is Test {
     
     function test_InterestAccrual() public {
         uint256 depositAmount = 100e6;
-        vm.prank(alice);
-        vault.deposit(depositAmount);
+        _approveAndDeposit(alice, depositAmount);
 
         // Manually allocate funds to strategies to simulate the allocation
         // In a real scenario, this would happen automatically
@@ -360,8 +364,7 @@ contract RiskBasedSystemTest is Test {
 
     function test_InsufficientShares() public {
         uint256 depositAmount = 100e6;
-        vm.prank(alice);
-        vault.deposit(depositAmount);
+        _approveAndDeposit(alice, depositAmount);
 
         uint256 shares = vault.userShares(alice);
 
@@ -372,8 +375,7 @@ contract RiskBasedSystemTest is Test {
 
     function test_WithdrawalWindow() public {
         uint256 depositAmount = 100e6;
-        vm.prank(alice);
-        vault.deposit(depositAmount);
+        _approveAndDeposit(alice, depositAmount);
 
         uint256 shares = vault.userShares(alice);
 
@@ -406,14 +408,9 @@ contract RiskBasedSystemTest is Test {
         // All users deposit same amount
         uint256 depositAmount = 100e6;
 
-        vm.prank(alice);
-        vault.deposit(depositAmount);
-
-        vm.prank(bob);
-        vault.deposit(depositAmount);
-
-        vm.prank(charlie);
-        vault.deposit(depositAmount);
+        _approveAndDeposit(alice, depositAmount);
+        _approveAndDeposit(bob, depositAmount);
+        _approveAndDeposit(charlie, depositAmount);
 
         // All should have deposits recorded
         assertEq(vault.userDeposits(alice), depositAmount);
@@ -499,8 +496,7 @@ contract RiskBasedSystemTest is Test {
 
         // 2. User deposits funds
         uint256 depositAmount = 1000e6; // $1000
-        vm.prank(alice);
-        vault.depositWithRiskLevel(depositAmount, RiskProfileManager.RiskLevel.HIGH);
+        _approveAndDepositWithRisk(alice, depositAmount, RiskProfileManager.RiskLevel.HIGH);
 
         // 3. Time passes, yield is generated
         vm.warp(block.timestamp + 30 days);

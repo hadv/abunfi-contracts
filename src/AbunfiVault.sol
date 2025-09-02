@@ -65,12 +65,10 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     event RiskManagersUpdated(address riskProfileManager, address withdrawalManager);
     event ReserveRatioUpdated(uint256 oldRatio, uint256 newRatio);
 
-    constructor(
-        address _asset,
-        address _trustedForwarder,
-        address _riskProfileManager,
-        address _withdrawalManager
-    ) Ownable(msg.sender) ERC2771Context(_trustedForwarder) {
+    constructor(address _asset, address _trustedForwarder, address _riskProfileManager, address _withdrawalManager)
+        Ownable(msg.sender)
+        ERC2771Context(_trustedForwarder)
+    {
         asset = IERC20(_asset);
         riskProfileManager = RiskProfileManager(_riskProfileManager);
         withdrawalManager = WithdrawalManager(_withdrawalManager);
@@ -147,7 +145,11 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
      * @param amount Amount of USDC to deposit
      * @param riskLevel Risk level for this deposit
      */
-    function depositWithRiskLevel(uint256 amount, RiskProfileManager.RiskLevel riskLevel) external nonReentrant whenNotPaused {
+    function depositWithRiskLevel(uint256 amount, RiskProfileManager.RiskLevel riskLevel)
+        external
+        nonReentrant
+        whenNotPaused
+    {
         require(amount >= MINIMUM_DEPOSIT, "Amount below minimum");
         require(amount > 0, "Cannot deposit 0");
 
@@ -808,7 +810,9 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         address[] memory riskStrategies;
         uint256[] memory allocations;
 
-        try riskProfileManager.getUserAllocations(msg.sender) returns (address[] memory riskStrats, uint256[] memory allocs) {
+        try riskProfileManager.getUserAllocations(msg.sender) returns (
+            address[] memory riskStrats, uint256[] memory allocs
+        ) {
             riskStrategies = riskStrats;
             allocations = allocs;
         } catch {

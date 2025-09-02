@@ -53,7 +53,7 @@ interface IAbunfiVault {
  */
 contract WithdrawalManager is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
-    
+
     // Withdrawal request structure
     struct WithdrawalRequest {
         uint256 shares; // Number of shares to withdraw
@@ -63,54 +63,44 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
         bool isProcessed; // Whether withdrawal has been processed
         bool isCancelled; // Whether withdrawal was cancelled
     }
-    
+
     // User withdrawal tracking
     mapping(address => WithdrawalRequest[]) public userWithdrawalRequests;
     mapping(address => uint256) public pendingWithdrawalShares;
-    
+
     // Interest accrual tracking
     mapping(address => uint256) public lastInterestUpdateTime;
     mapping(address => uint256) public accruedInterest;
     mapping(address => uint256) public totalInterestEarned;
-    
+
     // Configuration
     uint256 public withdrawalWindow = 7 days; // Default 7-day window
     uint256 public instantWithdrawalFee = 100; // 1% fee for instant withdrawal (basis points)
     uint256 public maxWithdrawalWindow = 30 days;
     uint256 public constant BASIS_POINTS = 10000;
-    
+
     // Vault reference for share calculations
     address public vault;
     IERC20 public asset;
-    
+
     // Events
-    event WithdrawalRequested(
-        address indexed user, 
-        uint256 indexed requestId, 
-        uint256 shares, 
-        uint256 estimatedAmount
-    );
-    event WithdrawalProcessed(
-        address indexed user, 
-        uint256 indexed requestId, 
-        uint256 shares, 
-        uint256 actualAmount
-    );
+    event WithdrawalRequested(address indexed user, uint256 indexed requestId, uint256 shares, uint256 estimatedAmount);
+    event WithdrawalProcessed(address indexed user, uint256 indexed requestId, uint256 shares, uint256 actualAmount);
     event WithdrawalCancelled(address indexed user, uint256 indexed requestId);
     event InstantWithdrawal(address indexed user, uint256 shares, uint256 amount, uint256 fee);
     event InterestAccrued(address indexed user, uint256 amount);
     event WithdrawalWindowUpdated(uint256 oldWindow, uint256 newWindow);
-    
+
     modifier onlyVault() {
         require(msg.sender == vault, "Only vault can call");
         _;
     }
-    
+
     constructor(address _vault, address _asset) Ownable(msg.sender) {
         vault = _vault;
         asset = IERC20(_asset);
     }
-    
+
     /**
      * @dev Request withdrawal with window period (called by vault)
      * @notice This function is called by the vault to create a withdrawal request on behalf of a user.
@@ -194,7 +184,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
 
         return requestId;
     }
-    
+
     /**
      * @dev Process withdrawal request after window period (called by vault)
      * @notice This function processes a withdrawal request after the required window period has passed.
@@ -220,10 +210,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
         WithdrawalRequest storage request = userWithdrawalRequests[user][requestId];
         require(!request.isProcessed, "Request already processed");
         require(!request.isCancelled, "Request cancelled");
-        require(
-            block.timestamp >= request.requestTime + withdrawalWindow,
-            "Withdrawal window not met"
-        );
+        require(block.timestamp >= request.requestTime + withdrawalWindow, "Withdrawal window not met");
 
         // Update user's accrued interest
         _updateAccruedInterest(user);
@@ -252,10 +239,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
         WithdrawalRequest storage request = userWithdrawalRequests[user][requestId];
         require(!request.isProcessed, "Request already processed");
         require(!request.isCancelled, "Request cancelled");
-        require(
-            block.timestamp >= request.requestTime + withdrawalWindow,
-            "Withdrawal window not met"
-        );
+        require(block.timestamp >= request.requestTime + withdrawalWindow, "Withdrawal window not met");
 
         // Update user's accrued interest
         _updateAccruedInterest(user);
@@ -272,7 +256,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
 
         emit WithdrawalProcessed(user, requestId, request.shares, finalAmount);
     }
-    
+
     /**
      * @dev Instant withdrawal with fee (called by vault)
      * @notice This function processes an instant withdrawal with a fee, bypassing the withdrawal window.
@@ -334,7 +318,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
 
         emit InstantWithdrawal(user, shares, netAmount, fee);
     }
-    
+
     /**
      * @dev Cancel withdrawal request
      * @param requestId ID of the withdrawal request to cancel
@@ -342,18 +326,18 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
     function cancelWithdrawal(uint256 requestId) external nonReentrant {
         address user = msg.sender;
         require(requestId < userWithdrawalRequests[user].length, "Invalid request ID");
-        
+
         WithdrawalRequest storage request = userWithdrawalRequests[user][requestId];
         require(!request.isProcessed, "Request already processed");
         require(!request.isCancelled, "Request already cancelled");
-        
+
         // Mark as cancelled
         request.isCancelled = true;
         pendingWithdrawalShares[user] -= request.shares;
-        
+
         emit WithdrawalCancelled(user, requestId);
     }
-    
+
     /**
      * @dev Update accrued interest for user
      * @param user User address
@@ -361,7 +345,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
     function updateAccruedInterest(address user) external {
         _updateAccruedInterest(user);
     }
-    
+
     /**
      * @dev Get user's withdrawal requests
      * @param user User address
@@ -370,7 +354,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
     function getUserWithdrawalRequests(address user) external view returns (WithdrawalRequest[] memory) {
         return userWithdrawalRequests[user];
     }
-    
+
     /**
      * @dev Get pending withdrawal requests count for user
      * @param user User address
@@ -384,7 +368,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
             }
         }
     }
-    
+
     /**
      * @dev Check if withdrawal request can be processed
      * @param user User address
@@ -393,15 +377,13 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
      */
     function canProcessWithdrawal(address user, uint256 requestId) external view returns (bool) {
         if (requestId >= userWithdrawalRequests[user].length) return false;
-        
+
         WithdrawalRequest memory request = userWithdrawalRequests[user][requestId];
-        return !request.isProcessed && 
-               !request.isCancelled && 
-               block.timestamp >= request.requestTime + withdrawalWindow;
+        return !request.isProcessed && !request.isCancelled && block.timestamp >= request.requestTime + withdrawalWindow;
     }
-    
+
     // Admin functions
-    
+
     /**
      * @dev Update withdrawal window period
      * @param newWindow New window period in seconds
@@ -412,7 +394,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
         withdrawalWindow = newWindow;
         emit WithdrawalWindowUpdated(oldWindow, newWindow);
     }
-    
+
     /**
      * @dev Update instant withdrawal fee
      * @param newFee New fee in basis points
@@ -421,9 +403,9 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
         require(newFee <= 1000, "Fee too high"); // Max 10%
         instantWithdrawalFee = newFee;
     }
-    
+
     // Internal functions
-    
+
     /**
      * @dev Update accrued interest for user (internal)
      * @param user User address
@@ -434,7 +416,7 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
         lastInterestUpdateTime[user] = block.timestamp;
         emit InterestAccrued(user, 0); // Placeholder
     }
-    
+
     /**
      * @dev Get withdrawal amount for shares (internal)
      * @notice Converts shares to equivalent USDC withdrawal amount.
@@ -450,12 +432,12 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
      *      - Could incorporate user-specific interest calculations
      *      - Could use vault's totalAssets() and totalShares() for dynamic pricing
      */
-    function _getWithdrawalAmount(address /* user */, uint256 shares) internal view returns (uint256) {
+    function _getWithdrawalAmount(address, /* user */ uint256 shares) internal view returns (uint256) {
         // For now, use a simple conversion: shares are in 18 decimals, USDC is in 6 decimals
         // So we need to divide by 1e12 to convert from shares to USDC amount
         return shares / 1e12;
     }
-    
+
     /**
      * @dev Process withdrawal through vault (internal)
      * @param user User address

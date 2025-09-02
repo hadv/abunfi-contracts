@@ -54,7 +54,9 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     event AllocationCalculated(address indexed strategy, uint256 allocation);
     event RiskToleranceUpdated(uint256 oldTolerance, uint256 newTolerance);
     event PerformanceUpdated(address indexed strategy, uint256 newScore);
-    event RiskLevelAllocationUpdated(RiskProfileManager.RiskLevel riskLevel, address[] strategies, uint256[] allocations);
+    event RiskLevelAllocationUpdated(
+        RiskProfileManager.RiskLevel riskLevel, address[] strategies, uint256[] allocations
+    );
     event RiskProfileManagerUpdated(address oldManager, address newManager);
 
     constructor(address _riskProfileManager) Ownable(msg.sender) {
@@ -691,7 +693,10 @@ contract StrategyManager is Ownable, ReentrancyGuard {
      * @return allocations Array of allocation percentages
      */
     function getRiskLevelAllocation(RiskProfileManager.RiskLevel riskLevel)
-        external view returns (address[] memory strategyAddresses, uint256[] memory allocations) {
+        external
+        view
+        returns (address[] memory strategyAddresses, uint256[] memory allocations)
+    {
         address[] memory riskStrategies = riskLevelStrategies[riskLevel];
         uint256[] memory riskAllocations = new uint256[](riskStrategies.length);
 
@@ -710,8 +715,10 @@ contract StrategyManager is Ownable, ReentrancyGuard {
      * @return allocations Array of allocation amounts
      */
     function calculateUserAllocation(address user, uint256 amount)
-        external view returns (address[] memory strategyAddresses, uint256[] memory allocations) {
-
+        external
+        view
+        returns (address[] memory strategyAddresses, uint256[] memory allocations)
+    {
         if (address(riskProfileManager) == address(0)) {
             // Fallback to default allocation if no risk manager
             return _calculateDefaultAllocation(amount);
@@ -753,8 +760,10 @@ contract StrategyManager is Ownable, ReentrancyGuard {
      * @return allocations Array of allocation amounts
      */
     function _calculateDefaultAllocation(uint256 amount)
-        internal view returns (address[] memory strategyAddresses, uint256[] memory allocations) {
-
+        internal
+        view
+        returns (address[] memory strategyAddresses, uint256[] memory allocations)
+    {
         uint256 activeCount = 0;
         for (uint256 i = 0; i < strategyList.length; i++) {
             if (strategies[strategyList[i]].isActive) {

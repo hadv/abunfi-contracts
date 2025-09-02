@@ -9,17 +9,20 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @dev Manages user risk profiles and strategy allocation mappings
  */
 contract RiskProfileManager is Ownable, ReentrancyGuard {
-    
     // Risk levels
-    enum RiskLevel { LOW, MEDIUM, HIGH }
-    
+    enum RiskLevel {
+        LOW,
+        MEDIUM,
+        HIGH
+    }
+
     // Risk profile structure
     struct RiskProfile {
         RiskLevel level;
         uint256 lastUpdated;
         bool isActive;
     }
-    
+
     // Strategy allocation for each risk level
     struct RiskAllocation {
         address[] strategies;
@@ -27,24 +30,24 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
         uint256 maxRiskScore; // Maximum risk score for strategies in this profile
         string description;
     }
-    
+
     // State variables
     mapping(address => RiskProfile) public userRiskProfiles;
     mapping(RiskLevel => RiskAllocation) public riskAllocations;
-    
+
     // Configuration
     uint256 public constant BASIS_POINTS = 10000;
     uint256 public riskUpdateCooldown = 24 hours; // Prevent frequent risk changes
-    
+
     // Events
     event RiskProfileUpdated(address indexed user, RiskLevel oldLevel, RiskLevel newLevel);
     event RiskAllocationUpdated(RiskLevel level, address[] strategies, uint256[] allocations);
     event RiskUpdateCooldownChanged(uint256 oldCooldown, uint256 newCooldown);
-    
+
     constructor() Ownable(msg.sender) {
         _initializeDefaultAllocations();
     }
-    
+
     /**
      * @dev Set user's risk profile
      * @param level Risk level to set
@@ -52,25 +55,22 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
     function setRiskProfile(RiskLevel level) external nonReentrant {
         address user = msg.sender;
         RiskProfile storage profile = userRiskProfiles[user];
-        
+
         // Check cooldown period
         if (profile.isActive) {
-            require(
-                block.timestamp >= profile.lastUpdated + riskUpdateCooldown,
-                "Risk update cooldown not met"
-            );
+            require(block.timestamp >= profile.lastUpdated + riskUpdateCooldown, "Risk update cooldown not met");
         }
-        
+
         RiskLevel oldLevel = profile.level;
-        
+
         // Update profile
         profile.level = level;
         profile.lastUpdated = block.timestamp;
         profile.isActive = true;
-        
+
         emit RiskProfileUpdated(user, oldLevel, level);
     }
-    
+
     /**
      * @dev Get user's current risk profile
      * @param user User address
@@ -79,7 +79,7 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
     function getUserRiskProfile(address user) external view returns (RiskProfile memory) {
         return userRiskProfiles[user];
     }
-    
+
     /**
      * @dev Get user's risk level (defaults to MEDIUM if not set)
      * @param user User address
@@ -91,7 +91,7 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
         }
         return userRiskProfiles[user].level;
     }
-    
+
     /**
      * @dev Get allocation for a specific risk level
      * @param level Risk level
@@ -100,19 +100,23 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
     function getRiskAllocation(RiskLevel level) external view returns (RiskAllocation memory) {
         return riskAllocations[level];
     }
-    
+
     /**
      * @dev Get strategy allocations for user's risk level
      * @param user User address
      * @return strategies Array of strategy addresses
      * @return allocations Array of allocation percentages in basis points
      */
-    function getUserAllocations(address user) external view returns (address[] memory strategies, uint256[] memory allocations) {
+    function getUserAllocations(address user)
+        external
+        view
+        returns (address[] memory strategies, uint256[] memory allocations)
+    {
         RiskLevel level = this.getUserRiskLevel(user);
         RiskAllocation memory allocation = riskAllocations[level];
         return (allocation.strategies, allocation.allocations);
     }
-    
+
     /**
      * @dev Check if user can update risk profile (cooldown check)
      * @param user User address
@@ -125,9 +129,9 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
         }
         return block.timestamp >= profile.lastUpdated + riskUpdateCooldown;
     }
-    
+
     // Admin functions
-    
+
     /**
      * @dev Update risk allocation for a specific level
      * @param level Risk level to update
@@ -145,14 +149,14 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         require(strategies.length == allocations.length, "Arrays length mismatch");
         require(strategies.length > 0, "Empty strategies array");
-        
+
         // Validate total allocation equals 100%
         uint256 totalAllocation = 0;
         for (uint256 i = 0; i < allocations.length; i++) {
             totalAllocation += allocations[i];
         }
         require(totalAllocation == BASIS_POINTS, "Total allocation must equal 100%");
-        
+
         // Update allocation
         riskAllocations[level] = RiskAllocation({
             strategies: strategies,
@@ -160,10 +164,10 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
             maxRiskScore: maxRiskScore,
             description: description
         });
-        
+
         emit RiskAllocationUpdated(level, strategies, allocations);
     }
-    
+
     /**
      * @dev Set risk profile on behalf of user (for vault integration)
      * @param user User address
@@ -176,10 +180,7 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
 
         // Check cooldown period
         if (profile.isActive) {
-            require(
-                block.timestamp >= profile.lastUpdated + riskUpdateCooldown,
-                "Risk update cooldown not met"
-            );
+            require(block.timestamp >= profile.lastUpdated + riskUpdateCooldown, "Risk update cooldown not met");
         }
 
         RiskLevel oldLevel = profile.level;
@@ -202,7 +203,7 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
         riskUpdateCooldown = newCooldown;
         emit RiskUpdateCooldownChanged(oldCooldown, newCooldown);
     }
-    
+
     /**
      * @dev Initialize default risk allocations
      */
@@ -210,29 +211,29 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
         // LOW RISK: Conservative allocation
         address[] memory lowRiskStrategies = new address[](0);
         uint256[] memory lowRiskAllocations = new uint256[](0);
-        
+
         riskAllocations[RiskLevel.LOW] = RiskAllocation({
             strategies: lowRiskStrategies,
             allocations: lowRiskAllocations,
             maxRiskScore: 30,
             description: "Conservative: Focus on stable, low-risk yield strategies"
         });
-        
+
         // MEDIUM RISK: Balanced allocation
         address[] memory mediumRiskStrategies = new address[](0);
         uint256[] memory mediumRiskAllocations = new uint256[](0);
-        
+
         riskAllocations[RiskLevel.MEDIUM] = RiskAllocation({
             strategies: mediumRiskStrategies,
             allocations: mediumRiskAllocations,
             maxRiskScore: 60,
             description: "Balanced: Mix of stable and moderate yield strategies"
         });
-        
+
         // HIGH RISK: Aggressive allocation
         address[] memory highRiskStrategies = new address[](0);
         uint256[] memory highRiskAllocations = new uint256[](0);
-        
+
         riskAllocations[RiskLevel.HIGH] = RiskAllocation({
             strategies: highRiskStrategies,
             allocations: highRiskAllocations,
@@ -240,7 +241,7 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
             description: "Aggressive: Higher yield strategies with increased risk"
         });
     }
-    
+
     /**
      * @dev Get risk level as string
      * @param level Risk level enum

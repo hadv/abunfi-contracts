@@ -20,7 +20,7 @@ import "../src/mocks/MockCometRewards.sol";
  */
 contract Deploy is Script {
     // Configuration constants
-    uint256 public constant INITIAL_USDC_MINT = 10_000_000 * 10**6; // 10M USDC for testing
+    uint256 public constant INITIAL_USDC_MINT = 10_000_000 * 10 ** 6; // 10M USDC for testing
     uint256 public constant STRATEGY_WEIGHT = 3333; // ~33.33% allocation per strategy
     uint256 public constant AAVE_RISK_SCORE = 20; // Low risk
     uint256 public constant COMPOUND_RISK_SCORE = 25; // Low-medium risk
@@ -101,7 +101,7 @@ contract Deploy is Script {
             MockERC20 mockUSDC = new MockERC20("USD Coin", "USDC", 6);
             mockUSDC.mint(msg.sender, INITIAL_USDC_MINT);
             console.log("Mock USDC deployed at:", address(mockUSDC));
-            console.log("Minted", INITIAL_USDC_MINT / 10**6, "USDC to deployer");
+            console.log("Minted", INITIAL_USDC_MINT / 10 ** 6, "USDC to deployer");
             return address(mockUSDC);
         } else {
             // Other networks - deploy mock USDC
@@ -178,44 +178,36 @@ contract Deploy is Script {
         return (address(comet), address(cometRewards));
     }
 
-    function _deployAaveStrategy(
-        address usdcAddress,
-        address aavePool,
-        address dataProvider,
-        address vault
-    ) internal returns (AaveStrategy) {
+    function _deployAaveStrategy(address usdcAddress, address aavePool, address dataProvider, address vault)
+        internal
+        returns (AaveStrategy)
+    {
         console.log("\n6. Deploying AaveStrategy...");
         AaveStrategy strategy = new AaveStrategy(usdcAddress, aavePool, dataProvider, vault);
         console.log("AaveStrategy deployed at:", address(strategy));
         return strategy;
     }
 
-    function _deployCompoundStrategy(
-        address usdcAddress,
-        address comet,
-        address cometRewards,
-        address vault
-    ) internal returns (CompoundStrategy) {
+    function _deployCompoundStrategy(address usdcAddress, address comet, address cometRewards, address vault)
+        internal
+        returns (CompoundStrategy)
+    {
         console.log("\n7. Deploying CompoundStrategy...");
         CompoundStrategy strategy = new CompoundStrategy(usdcAddress, comet, cometRewards, vault);
         console.log("CompoundStrategy deployed at:", address(strategy));
         return strategy;
     }
 
-    function _deployLiquidStakingStrategy(
-        address usdcAddress,
-        address vault
-    ) internal returns (LiquidStakingStrategy) {
+    function _deployLiquidStakingStrategy(address usdcAddress, address vault)
+        internal
+        returns (LiquidStakingStrategy)
+    {
         console.log("\n8. Deploying LiquidStakingStrategy...");
 
         // Deploy mock staking token for testing
         MockERC20 mockStETH = new MockERC20("Liquid Staked ETH", "stETH", 18);
-        LiquidStakingStrategy strategy = new LiquidStakingStrategy(
-            usdcAddress,
-            address(mockStETH),
-            vault,
-            "Liquid Staking Strategy"
-        );
+        LiquidStakingStrategy strategy =
+            new LiquidStakingStrategy(usdcAddress, address(mockStETH), vault, "Liquid Staking Strategy");
         console.log("LiquidStakingStrategy deployed at:", address(strategy));
         console.log("Mock stETH deployed at:", address(mockStETH));
         return strategy;
@@ -238,27 +230,15 @@ contract Deploy is Script {
 
         // Add strategies to strategy manager with risk parameters
         strategyManager.addStrategy(
-            address(aaveStrategy),
-            STRATEGY_WEIGHT,
-            AAVE_RISK_SCORE,
-            MAX_ALLOCATION,
-            MIN_ALLOCATION
+            address(aaveStrategy), STRATEGY_WEIGHT, AAVE_RISK_SCORE, MAX_ALLOCATION, MIN_ALLOCATION
         );
 
         strategyManager.addStrategy(
-            address(compoundStrategy),
-            STRATEGY_WEIGHT,
-            COMPOUND_RISK_SCORE,
-            MAX_ALLOCATION,
-            MIN_ALLOCATION
+            address(compoundStrategy), STRATEGY_WEIGHT, COMPOUND_RISK_SCORE, MAX_ALLOCATION, MIN_ALLOCATION
         );
-        
+
         strategyManager.addStrategy(
-            address(liquidStakingStrategy),
-            STRATEGY_WEIGHT,
-            LIQUID_STAKING_RISK_SCORE,
-            MAX_ALLOCATION,
-            MIN_ALLOCATION
+            address(liquidStakingStrategy), STRATEGY_WEIGHT, LIQUID_STAKING_RISK_SCORE, MAX_ALLOCATION, MIN_ALLOCATION
         );
         console.log("Added strategies to strategy manager with risk parameters");
 
@@ -315,9 +295,7 @@ contract Deploy is Script {
             )
         );
 
-        string memory filename = string(
-            abi.encodePacked("deployments/core-", vm.toString(block.chainid), ".json")
-        );
+        string memory filename = string(abi.encodePacked("deployments/core-", vm.toString(block.chainid), ".json"));
 
         vm.writeFile(filename, deploymentInfo);
         console.log("Deployment info saved to:", filename);
@@ -352,8 +330,18 @@ contract Deploy is Script {
         if (block.chainid != 31337) {
             console.log("\n=== VERIFICATION COMMANDS ===");
             console.log("forge verify-contract", vault, "src/AbunfiVault.sol:AbunfiVault --chain-id", block.chainid);
-            console.log("forge verify-contract", strategyManager, "src/StrategyManager.sol:StrategyManager --chain-id", block.chainid);
-            console.log("forge verify-contract", aaveStrategy, "src/strategies/AaveStrategy.sol:AaveStrategy --chain-id", block.chainid);
+            console.log(
+                "forge verify-contract",
+                strategyManager,
+                "src/StrategyManager.sol:StrategyManager --chain-id",
+                block.chainid
+            );
+            console.log(
+                "forge verify-contract",
+                aaveStrategy,
+                "src/strategies/AaveStrategy.sol:AaveStrategy --chain-id",
+                block.chainid
+            );
         }
 
         console.log("\n=== FRONTEND CONFIG ===");

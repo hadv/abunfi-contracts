@@ -54,7 +54,11 @@ contract AbunfiVaultWithGaslessTest is Test {
 
         // Deploy USDC and Vault with gasless support
         mockUSDC = new MockERC20("USD Coin", "USDC", 6);
-        vault = new AbunfiVault(address(mockUSDC), address(bundler)); // Use bundler as trusted forwarder
+        // Create mock risk management contracts for testing
+        address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        address mockWithdrawalManager = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+
+        vault = new AbunfiVault(address(mockUSDC), address(bundler), mockRiskManager, mockWithdrawalManager); // Use bundler as trusted forwarder
 
         // Setup users
         vm.deal(user1, 1 ether);

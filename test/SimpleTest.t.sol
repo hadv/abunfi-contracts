@@ -20,7 +20,11 @@ contract SimpleTestTest is Test {
         MockERC20 mockUSDC = new MockERC20("Mock USDC", "USDC", 6);
 
         // Deploy vault
-        AbunfiVault vault = new AbunfiVault(address(mockUSDC), address(0));
+        // Create mock risk management contracts for testing
+        address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        address mockWithdrawalManager = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+
+        AbunfiVault vault = new AbunfiVault(address(mockUSDC), address(0), mockRiskManager, mockWithdrawalManager);
 
         assertEq(address(vault.asset()), address(mockUSDC));
     }

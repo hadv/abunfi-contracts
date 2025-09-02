@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "./interfaces/IAbunfiStrategy.sol";
+import "./RiskProfileManager.sol";
+import "./WithdrawalManager.sol";
 
 /**
  * @title AbunfiVault
@@ -24,10 +26,19 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     mapping(address => uint256) public userShares;
     mapping(address => uint256) public lastDepositTime;
 
+    // Risk-based tracking
+    mapping(address => uint256) public userLastInterestUpdate;
+    mapping(address => uint256) public userAccruedInterest;
+    mapping(address => uint256) public userTotalInterestEarned;
+
     uint256 public totalDeposits;
     uint256 public totalShares;
     uint256 public constant MINIMUM_DEPOSIT = 4e6; // ~$4 USDC (6 decimals)
     uint256 public constant SHARES_MULTIPLIER = 1e18;
+
+    // Risk management contracts
+    RiskProfileManager public riskProfileManager;
+    WithdrawalManager public withdrawalManager;
 
     // Strategy management
     IAbunfiStrategy[] public strategies;
@@ -40,18 +51,28 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     uint256 public constant BASIS_POINTS = 10000;
 
     // Events
-    event Deposit(address indexed user, uint256 amount, uint256 shares);
+    event Deposit(address indexed user, uint256 amount, uint256 shares, RiskProfileManager.RiskLevel riskLevel);
     event Withdraw(address indexed user, uint256 amount, uint256 shares);
+    event RiskBasedDeposit(address indexed user, uint256 amount, RiskProfileManager.RiskLevel riskLevel);
+    event InterestAccrued(address indexed user, uint256 amount);
     event StrategyAdded(address indexed strategy);
     event StrategyAdded(address indexed strategy, uint256 weight);
     event StrategyRemoved(address indexed strategy);
     event StrategyWeightUpdated(address indexed strategy, uint256 oldWeight, uint256 newWeight);
     event Harvest(uint256 totalYield);
     event Rebalanced(uint256 totalRebalanced);
+    event RiskManagersUpdated(address riskProfileManager, address withdrawalManager);
     event ReserveRatioUpdated(uint256 oldRatio, uint256 newRatio);
 
-    constructor(address _asset, address _trustedForwarder) Ownable(msg.sender) ERC2771Context(_trustedForwarder) {
+    constructor(
+        address _asset,
+        address _trustedForwarder,
+        address _riskProfileManager,
+        address _withdrawalManager
+    ) Ownable(msg.sender) ERC2771Context(_trustedForwarder) {
         asset = IERC20(_asset);
+        riskProfileManager = RiskProfileManager(_riskProfileManager);
+        withdrawalManager = WithdrawalManager(_withdrawalManager);
     }
 
     /**
@@ -76,7 +97,7 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     }
 
     /**
-     * @dev Deposit USDC to start earning yield
+     * @dev Deposit USDC to start earning yield with risk-based allocation
      * @param amount Amount of USDC to deposit
      */
     function deposit(uint256 amount) external nonReentrant whenNotPaused {
@@ -85,6 +106,9 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
 
         address sender = _msgSender();
 
+        // Update user's accrued interest before new deposit
+        _updateUserInterest(sender);
+
         // Calculate shares to mint
         uint256 shares = totalShares == 0 ? amount * SHARES_MULTIPLIER / 1e6 : amount * totalShares / totalAssets();
 
@@ -92,6 +116,7 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         userDeposits[sender] += amount;
         userShares[sender] += shares;
         lastDepositTime[sender] = block.timestamp;
+        userLastInterestUpdate[sender] = block.timestamp;
 
         // Update global state
         totalDeposits += amount;
@@ -100,11 +125,91 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         // Transfer tokens
         asset.safeTransferFrom(sender, address(this), amount);
 
-        emit Deposit(sender, amount, shares);
+        // Get user's risk level for allocation
+        RiskProfileManager.RiskLevel riskLevel = riskProfileManager.getUserRiskLevel(sender);
+
+        // Trigger risk-based allocation
+        _allocateBasedOnRisk(amount, riskLevel);
+
+        emit Deposit(sender, amount, shares, riskLevel);
+        emit RiskBasedDeposit(sender, amount, riskLevel);
     }
 
     /**
-     * @dev Withdraw USDC and earned yield
+     * @dev Deposit with specific risk level (allows user to set risk during deposit)
+     * @param amount Amount of USDC to deposit
+     * @param riskLevel Risk level for this deposit
+     */
+    function depositWithRiskLevel(uint256 amount, RiskProfileManager.RiskLevel riskLevel) external nonReentrant whenNotPaused {
+        require(amount >= MINIMUM_DEPOSIT, "Amount below minimum");
+        require(amount > 0, "Cannot deposit 0");
+
+        address sender = _msgSender();
+
+        // Set user's risk profile if they can update it
+        if (riskProfileManager.canUpdateRiskProfile(sender)) {
+            riskProfileManager.setRiskProfileForUser(sender, riskLevel);
+        }
+
+        // Update user's accrued interest before new deposit
+        _updateUserInterest(sender);
+
+        // Calculate shares to mint
+        uint256 shares = totalShares == 0 ? amount * SHARES_MULTIPLIER / 1e6 : amount * totalShares / totalAssets();
+
+        // Update user state
+        userDeposits[sender] += amount;
+        userShares[sender] += shares;
+        lastDepositTime[sender] = block.timestamp;
+        userLastInterestUpdate[sender] = block.timestamp;
+
+        // Update global state
+        totalDeposits += amount;
+        totalShares += shares;
+
+        // Transfer tokens
+        asset.safeTransferFrom(sender, address(this), amount);
+
+        // Trigger risk-based allocation
+        _allocateBasedOnRisk(amount, riskLevel);
+
+        emit Deposit(sender, amount, shares, riskLevel);
+        emit RiskBasedDeposit(sender, amount, riskLevel);
+    }
+
+    /**
+     * @dev Request withdrawal with window period (recommended)
+     * @param shares Number of shares to redeem
+     * @return requestId ID of the withdrawal request
+     */
+    function requestWithdrawal(uint256 shares) external nonReentrant returns (uint256 requestId) {
+        require(shares > 0, "Cannot withdraw 0 shares");
+        address sender = _msgSender();
+        require(userShares[sender] >= shares, "Insufficient shares");
+
+        // Update user's accrued interest
+        _updateUserInterest(sender);
+
+        // Delegate to withdrawal manager
+        return withdrawalManager.requestWithdrawal(shares);
+    }
+
+    /**
+     * @dev Process withdrawal request after window period
+     * @param requestId ID of the withdrawal request
+     */
+    function processWithdrawal(uint256 requestId) external nonReentrant {
+        address sender = _msgSender();
+
+        // Update user's accrued interest
+        _updateUserInterest(sender);
+
+        // Delegate to withdrawal manager
+        withdrawalManager.processWithdrawal(requestId);
+    }
+
+    /**
+     * @dev Instant withdrawal with fee (legacy function for compatibility)
      * @param shares Number of shares to redeem
      */
     function withdraw(uint256 shares) external nonReentrant {
@@ -113,15 +218,22 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         address sender = _msgSender();
         require(userShares[sender] >= shares, "Insufficient shares");
 
-        // Calculate withdrawal amount
-        uint256 amount = shares * totalAssets() / totalShares;
+        // Update user's accrued interest
+        _updateUserInterest(sender);
+
+        // Calculate withdrawal amount including accrued interest
+        uint256 amount = _calculateWithdrawalAmount(sender, shares);
 
         // Update user state
         userShares[sender] -= shares;
         if (userShares[sender] == 0) {
             userDeposits[sender] = 0;
+            userAccruedInterest[sender] = 0;
         } else {
-            userDeposits[sender] = userDeposits[sender] * userShares[sender] / (userShares[sender] + shares);
+            // Proportionally reduce deposits and accrued interest
+            uint256 remainingRatio = userShares[sender] * 1e18 / (userShares[sender] + shares);
+            userDeposits[sender] = userDeposits[sender] * remainingRatio / 1e18;
+            userAccruedInterest[sender] = userAccruedInterest[sender] * remainingRatio / 1e18;
         }
 
         // Update global state
@@ -132,13 +244,29 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
             totalDeposits -= amount;
         }
 
-        // Ensure we have enough liquidity
+        // Ensure we have enough liquidity by withdrawing from strategies if needed
         _ensureLiquidity(amount);
 
         // Transfer tokens
         asset.safeTransfer(sender, amount);
 
         emit Withdraw(sender, amount, shares);
+    }
+
+    /**
+     * @dev Instant withdrawal with fee
+     * @param shares Number of shares to redeem instantly
+     */
+    function instantWithdrawal(uint256 shares) external nonReentrant {
+        require(shares > 0, "Cannot withdraw 0 shares");
+        address sender = _msgSender();
+        require(userShares[sender] >= shares, "Insufficient shares");
+
+        // Update user's accrued interest
+        _updateUserInterest(sender);
+
+        // Delegate to withdrawal manager
+        withdrawalManager.instantWithdrawal(shares);
     }
 
     /**
@@ -171,6 +299,14 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     function earnedYield(address user) external view returns (uint256) {
         uint256 currentBalance = this.balanceOf(user);
         return currentBalance > userDeposits[user] ? currentBalance - userDeposits[user] : 0;
+    }
+
+    /**
+     * @dev Update accrued interest for user (public function)
+     * @param user User address
+     */
+    function updateAccruedInterest(address user) external {
+        _updateUserInterest(user);
     }
 
     // Strategy management functions (onlyOwner)
@@ -506,5 +642,130 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     function emergencyWithdraw() external onlyOwner {
         uint256 balance = asset.balanceOf(address(this));
         asset.safeTransfer(owner(), balance);
+    }
+
+    // Risk-based and interest tracking functions
+
+    /**
+     * @dev Update user's accrued interest
+     * @param user User address
+     */
+    function _updateUserInterest(address user) internal {
+        if (userLastInterestUpdate[user] == 0) {
+            userLastInterestUpdate[user] = block.timestamp;
+            return;
+        }
+
+        uint256 timeElapsed = block.timestamp - userLastInterestUpdate[user];
+        if (timeElapsed == 0) return;
+
+        // Calculate interest based on user's share of total assets
+        uint256 userBalance = userShares[user] * totalAssets() / totalShares;
+        uint256 principal = userDeposits[user];
+
+        if (userBalance > principal) {
+            uint256 newInterest = userBalance - principal - userAccruedInterest[user];
+            userAccruedInterest[user] += newInterest;
+            userTotalInterestEarned[user] += newInterest;
+
+            if (newInterest > 0) {
+                emit InterestAccrued(user, newInterest);
+            }
+        }
+
+        userLastInterestUpdate[user] = block.timestamp;
+    }
+
+    /**
+     * @dev Calculate withdrawal amount including accrued interest
+     * @param user User address
+     * @param shares Number of shares to withdraw
+     * @return Withdrawal amount
+     */
+    function _calculateWithdrawalAmount(address user, uint256 shares) internal view returns (uint256) {
+        if (totalShares == 0) return 0;
+
+        // Base amount from shares
+        uint256 baseAmount = shares * totalAssets() / totalShares;
+
+        // Add proportional accrued interest
+        uint256 userTotalShares = userShares[user];
+        if (userTotalShares > 0) {
+            uint256 proportionalInterest = userAccruedInterest[user] * shares / userTotalShares;
+            return baseAmount + proportionalInterest;
+        }
+
+        return baseAmount;
+    }
+
+    /**
+     * @dev Allocate funds based on user's risk profile
+     * @param amount Amount to allocate
+     * @param riskLevel User's risk level
+     */
+    function _allocateBasedOnRisk(uint256 amount, RiskProfileManager.RiskLevel riskLevel) internal {
+        // Get risk-based allocation from risk profile manager
+        (address[] memory riskStrategies, uint256[] memory allocations) = riskProfileManager.getUserAllocations(msg.sender);
+
+        if (riskStrategies.length == 0) {
+            // Fallback to default allocation if no risk-specific strategies
+            _allocateByWeight(amount);
+            return;
+        }
+
+        // Allocate based on risk profile
+        for (uint256 i = 0; i < riskStrategies.length; i++) {
+            if (isActiveStrategy[riskStrategies[i]]) {
+                uint256 allocation = (amount * allocations[i]) / BASIS_POINTS;
+                if (allocation > 0) {
+                    asset.safeTransfer(riskStrategies[i], allocation);
+                    IAbunfiStrategy(riskStrategies[i]).deposit(allocation);
+                }
+            }
+        }
+    }
+
+    /**
+     * @dev Update risk management contracts
+     * @param _riskProfileManager New risk profile manager address
+     * @param _withdrawalManager New withdrawal manager address
+     */
+    function updateRiskManagers(address _riskProfileManager, address _withdrawalManager) external onlyOwner {
+        require(_riskProfileManager != address(0), "Invalid risk profile manager");
+        require(_withdrawalManager != address(0), "Invalid withdrawal manager");
+
+        riskProfileManager = RiskProfileManager(_riskProfileManager);
+        withdrawalManager = WithdrawalManager(_withdrawalManager);
+
+        emit RiskManagersUpdated(_riskProfileManager, _withdrawalManager);
+    }
+
+    /**
+     * @dev Get user's current balance including accrued interest
+     * @param user User address
+     * @return Total balance including interest
+     */
+    function getBalanceWithInterest(address user) external view returns (uint256) {
+        if (totalShares == 0) return 0;
+        uint256 baseBalance = userShares[user] * totalAssets() / totalShares;
+        return baseBalance + userAccruedInterest[user];
+    }
+
+    /**
+     * @dev Get user's accrued interest
+     * @param user User address
+     * @return Accrued interest amount
+     */
+    function getUserAccruedInterest(address user) external view returns (uint256) {
+        return userAccruedInterest[user];
+    }
+
+    /**
+     * @dev Get user's total interest earned over time
+     * @param user User address
+     * @return Total interest earned
+     */
+    function getUserTotalInterestEarned(address user) external view returns (uint256) {
+        return userTotalInterestEarned[user];
     }
 }

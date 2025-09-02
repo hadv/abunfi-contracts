@@ -49,7 +49,9 @@ contract Deploy is Script {
 
         // 2. Deploy core contracts
         AbunfiVault vault = _deployVault(usdcAddress);
-        StrategyManager strategyManager = _deployStrategyManager();
+        // Create a mock risk profile manager for the strategy manager
+        address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        StrategyManager strategyManager = _deployStrategyManager(mockRiskManager);
 
         // 3. Deploy mock protocol contracts for testing
         (address aavePool, address aaveDataProvider) = _deployMockAave(usdcAddress);
@@ -120,14 +122,18 @@ contract Deploy is Script {
 
     function _deployVault(address usdcAddress) internal returns (AbunfiVault) {
         console.log("\n2. Deploying AbunfiVault...");
-        AbunfiVault vault = new AbunfiVault(usdcAddress, address(0)); // No trusted forwarder for now
+        // Deploy risk management contracts first
+        address riskProfileManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        address withdrawalManager = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+
+        AbunfiVault vault = new AbunfiVault(usdcAddress, address(0), riskProfileManager, withdrawalManager); // No trusted forwarder for now
         console.log("AbunfiVault deployed at:", address(vault));
         return vault;
     }
 
-    function _deployStrategyManager() internal returns (StrategyManager) {
+    function _deployStrategyManager(address riskProfileManagerAddr) internal returns (StrategyManager) {
         console.log("\n3. Deploying StrategyManager...");
-        StrategyManager strategyManager = new StrategyManager();
+        StrategyManager strategyManager = new StrategyManager(riskProfileManagerAddr);
         console.log("StrategyManager deployed at:", address(strategyManager));
         return strategyManager;
     }

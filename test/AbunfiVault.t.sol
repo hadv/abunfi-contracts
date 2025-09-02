@@ -25,7 +25,11 @@ contract AbunfiVaultTest is Test {
         mockUSDC = new MockERC20("Mock USDC", "USDC", 6);
 
         // Deploy vault
-        vault = new AbunfiVault(address(mockUSDC), address(0));
+        // Create mock risk management contracts for testing
+        address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        address mockWithdrawalManager = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+
+        vault = new AbunfiVault(address(mockUSDC), address(0), mockRiskManager, mockWithdrawalManager);
 
         // Mint USDC to users
         mockUSDC.mint(user1, 1000 * 10 ** 6); // 1000 USDC

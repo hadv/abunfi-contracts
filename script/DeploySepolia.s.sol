@@ -64,7 +64,9 @@ contract DeploySepolia is Script {
 
         // 2. Deploy core contracts
         AbunfiVault vault = _deployVault(address(usdc));
-        StrategyManager strategyManager = _deployStrategyManager();
+        // Create a mock risk profile manager for the strategy manager
+        address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        StrategyManager strategyManager = _deployStrategyManager(mockRiskManager);
 
         // 3. Deploy mock protocol contracts
         (MockAavePool aavePool, MockAaveDataProvider aaveDataProvider, MockERC20 aUSDC) = _deployMockAave(address(usdc));
@@ -124,14 +126,18 @@ contract DeploySepolia is Script {
 
     function _deployVault(address usdcAddress) internal returns (AbunfiVault) {
         console.log("\n2. Deploying AbunfiVault...");
-        AbunfiVault vault = new AbunfiVault(usdcAddress, address(0));
+        // Deploy risk management contracts first
+        address riskProfileManagerAddr = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        address withdrawalManagerAddr = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+
+        AbunfiVault vault = new AbunfiVault(usdcAddress, address(0), riskProfileManagerAddr, withdrawalManagerAddr);
         console.log("AbunfiVault deployed at:", address(vault));
         return vault;
     }
 
-    function _deployStrategyManager() internal returns (StrategyManager) {
+    function _deployStrategyManager(address riskProfileManagerAddr) internal returns (StrategyManager) {
         console.log("\n3. Deploying StrategyManager...");
-        StrategyManager strategyManager = new StrategyManager();
+        StrategyManager strategyManager = new StrategyManager(riskProfileManagerAddr);
         console.log("StrategyManager deployed at:", address(strategyManager));
         return strategyManager;
     }

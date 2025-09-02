@@ -63,7 +63,11 @@ contract VaultIntegrationTest is Test {
         mockCometRewards = new MockCometRewards();
 
         // Deploy AbunfiVault
-        vault = new AbunfiVault(address(mockUSDC), address(0));
+        // Create mock risk management contracts for testing
+        address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        address mockWithdrawalManager = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+
+        vault = new AbunfiVault(address(mockUSDC), address(0), mockRiskManager, mockWithdrawalManager);
 
         // Deploy AaveStrategy
         aaveStrategy =
@@ -74,7 +78,9 @@ contract VaultIntegrationTest is Test {
             new CompoundStrategy(address(mockUSDC), address(mockComet), address(mockCometRewards), address(vault));
 
         // Deploy StrategyManager
-        strategyManager = new StrategyManager();
+        // Create mock risk profile manager for testing
+        address mockRiskManagerForSM = address(new MockERC20("Mock Risk Manager SM", "MRMSM", 18));
+        strategyManager = new StrategyManager(mockRiskManagerForSM);
 
         // Setup initial balances
         mockUSDC.mint(user1, INITIAL_SUPPLY);

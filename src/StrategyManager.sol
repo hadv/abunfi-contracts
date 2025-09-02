@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/IAbunfiStrategy.sol";
+import "./RiskProfileManager.sol";
 
 /**
  * @title StrategyManager
@@ -24,6 +25,13 @@ contract StrategyManager is Ownable, ReentrancyGuard {
 
     mapping(address => StrategyInfo) public strategies;
     address[] public strategyList;
+
+    // Risk-based allocation mappings
+    mapping(RiskProfileManager.RiskLevel => address[]) public riskLevelStrategies;
+    mapping(RiskProfileManager.RiskLevel => mapping(address => uint256)) public riskLevelAllocations;
+
+    // Risk profile manager reference
+    RiskProfileManager public riskProfileManager;
 
     // Configuration
     uint256 public constant BASIS_POINTS = 10000;
@@ -46,8 +54,14 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     event AllocationCalculated(address indexed strategy, uint256 allocation);
     event RiskToleranceUpdated(uint256 oldTolerance, uint256 newTolerance);
     event PerformanceUpdated(address indexed strategy, uint256 newScore);
+    event RiskLevelAllocationUpdated(RiskProfileManager.RiskLevel riskLevel, address[] strategies, uint256[] allocations);
+    event RiskProfileManagerUpdated(address oldManager, address newManager);
 
-    constructor() Ownable(msg.sender) {}
+    constructor(address _riskProfileManager) Ownable(msg.sender) {
+        if (_riskProfileManager != address(0)) {
+            riskProfileManager = RiskProfileManager(_riskProfileManager);
+        }
+    }
 
     /**
      * @dev Add a new strategy with risk assessment
@@ -632,6 +646,147 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     function setRebalanceThreshold(uint256 _threshold) external onlyOwner {
         require(_threshold <= 2000, "Threshold too high"); // Max 20%
         rebalanceThreshold = _threshold;
+    }
+
+    // Risk-based allocation functions
+
+    /**
+     * @dev Set allocation for a specific risk level
+     * @param riskLevel Risk level to configure
+     * @param strategyAddresses Array of strategy addresses for this risk level
+     * @param allocations Array of allocation percentages in basis points
+     */
+    function setRiskLevelAllocation(
+        RiskProfileManager.RiskLevel riskLevel,
+        address[] calldata strategyAddresses,
+        uint256[] calldata allocations
+    ) external onlyOwner {
+        require(strategyAddresses.length == allocations.length, "Arrays length mismatch");
+        require(strategyAddresses.length > 0, "Empty arrays");
+
+        // Validate total allocation equals 100%
+        uint256 totalAllocation = 0;
+        for (uint256 i = 0; i < allocations.length; i++) {
+            totalAllocation += allocations[i];
+            require(strategies[strategyAddresses[i]].isActive, "Strategy not active");
+        }
+        require(totalAllocation == BASIS_POINTS, "Total allocation must equal 100%");
+
+        // Clear existing allocations for this risk level
+        delete riskLevelStrategies[riskLevel];
+
+        // Set new allocations
+        for (uint256 i = 0; i < strategyAddresses.length; i++) {
+            riskLevelStrategies[riskLevel].push(strategyAddresses[i]);
+            riskLevelAllocations[riskLevel][strategyAddresses[i]] = allocations[i];
+        }
+
+        emit RiskLevelAllocationUpdated(riskLevel, strategyAddresses, allocations);
+    }
+
+    /**
+     * @dev Get strategies and allocations for a risk level
+     * @param riskLevel Risk level to query
+     * @return strategyAddresses Array of strategy addresses
+     * @return allocations Array of allocation percentages
+     */
+    function getRiskLevelAllocation(RiskProfileManager.RiskLevel riskLevel)
+        external view returns (address[] memory strategyAddresses, uint256[] memory allocations) {
+        address[] memory riskStrategies = riskLevelStrategies[riskLevel];
+        uint256[] memory riskAllocations = new uint256[](riskStrategies.length);
+
+        for (uint256 i = 0; i < riskStrategies.length; i++) {
+            riskAllocations[i] = riskLevelAllocations[riskLevel][riskStrategies[i]];
+        }
+
+        return (riskStrategies, riskAllocations);
+    }
+
+    /**
+     * @dev Calculate optimal allocation for user based on risk profile
+     * @param user User address
+     * @param amount Amount to allocate
+     * @return strategyAddresses Array of strategy addresses
+     * @return allocations Array of allocation amounts
+     */
+    function calculateUserAllocation(address user, uint256 amount)
+        external view returns (address[] memory strategyAddresses, uint256[] memory allocations) {
+
+        if (address(riskProfileManager) == address(0)) {
+            // Fallback to default allocation if no risk manager
+            return _calculateDefaultAllocation(amount);
+        }
+
+        RiskProfileManager.RiskLevel userRiskLevel = riskProfileManager.getUserRiskLevel(user);
+        address[] memory riskStrategies = riskLevelStrategies[userRiskLevel];
+
+        if (riskStrategies.length == 0) {
+            // Fallback to default allocation if no risk-specific strategies
+            return _calculateDefaultAllocation(amount);
+        }
+
+        uint256[] memory amounts = new uint256[](riskStrategies.length);
+        for (uint256 i = 0; i < riskStrategies.length; i++) {
+            if (strategies[riskStrategies[i]].isActive) {
+                uint256 allocation = riskLevelAllocations[userRiskLevel][riskStrategies[i]];
+                amounts[i] = (amount * allocation) / BASIS_POINTS;
+            }
+        }
+
+        return (riskStrategies, amounts);
+    }
+
+    /**
+     * @dev Update risk profile manager
+     * @param _riskProfileManager New risk profile manager address
+     */
+    function updateRiskProfileManager(address _riskProfileManager) external onlyOwner {
+        address oldManager = address(riskProfileManager);
+        riskProfileManager = RiskProfileManager(_riskProfileManager);
+        emit RiskProfileManagerUpdated(oldManager, _riskProfileManager);
+    }
+
+    /**
+     * @dev Calculate default allocation when no risk-based allocation is available
+     * @param amount Amount to allocate
+     * @return strategyAddresses Array of strategy addresses
+     * @return allocations Array of allocation amounts
+     */
+    function _calculateDefaultAllocation(uint256 amount)
+        internal view returns (address[] memory strategyAddresses, uint256[] memory allocations) {
+
+        uint256 activeCount = 0;
+        for (uint256 i = 0; i < strategyList.length; i++) {
+            if (strategies[strategyList[i]].isActive) {
+                activeCount++;
+            }
+        }
+
+        if (activeCount == 0) {
+            return (new address[](0), new uint256[](0));
+        }
+
+        address[] memory activeStrategies = new address[](activeCount);
+        uint256[] memory amounts = new uint256[](activeCount);
+        uint256 index = 0;
+        uint256 totalWeight = 0;
+
+        // Calculate total weight
+        for (uint256 i = 0; i < strategyList.length; i++) {
+            if (strategies[strategyList[i]].isActive) {
+                totalWeight += strategies[strategyList[i]].weight;
+                activeStrategies[index] = strategyList[i];
+                index++;
+            }
+        }
+
+        // Allocate based on weights
+        for (uint256 i = 0; i < activeStrategies.length; i++) {
+            uint256 weight = strategies[activeStrategies[i]].weight;
+            amounts[i] = (amount * weight) / totalWeight;
+        }
+
+        return (activeStrategies, amounts);
     }
 
     // View functions

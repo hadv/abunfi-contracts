@@ -84,28 +84,29 @@ contract RiskBasedSystemTest is Test {
         usdc.mint(bob, INITIAL_BALANCE);
         usdc.mint(charlie, INITIAL_BALANCE);
         
-        // Approve vault to spend USDC
-        vm.prank(alice);
+        // Approve vault to spend USDC for all users
+        vm.startPrank(alice);
         usdc.approve(address(vault), type(uint256).max);
-        vm.prank(bob);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
         usdc.approve(address(vault), type(uint256).max);
-        vm.prank(charlie);
+        vm.stopPrank();
+
+        vm.startPrank(charlie);
         usdc.approve(address(vault), type(uint256).max);
+        vm.stopPrank();
     }
 
-    // Helper functions for deposits with approvals
+    // Helper functions for deposits (approvals already done in setup)
     function _approveAndDeposit(address user, uint256 amount) internal {
-        vm.startPrank(user);
-        usdc.approve(address(vault), amount);
+        vm.prank(user);
         vault.deposit(amount);
-        vm.stopPrank();
     }
 
     function _approveAndDepositWithRisk(address user, uint256 amount, RiskProfileManager.RiskLevel riskLevel) internal {
-        vm.startPrank(user);
-        usdc.approve(address(vault), amount);
+        vm.prank(user);
         vault.depositWithRiskLevel(amount, riskLevel);
-        vm.stopPrank();
     }
 
     function _setupStrategies() internal {

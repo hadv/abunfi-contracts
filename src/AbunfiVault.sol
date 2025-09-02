@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "./interfaces/IAbunfiStrategy.sol";
 import "./RiskProfileManager.sol";
 import "./WithdrawalManager.sol";
+import "forge-std/console.sol";
 
 /**
  * @title AbunfiVault
@@ -179,8 +180,23 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
 
     /**
      * @dev Request withdrawal with window period (recommended)
-     * @param shares Number of shares to redeem
-     * @return requestId ID of the withdrawal request
+     * @notice Creates a withdrawal request that must wait for the withdrawal window before processing.
+     *         This is the recommended withdrawal method as it doesn't charge fees.
+     * @param shares Number of shares to redeem - must be > 0 and <= user's available shares
+     * @return requestId ID of the withdrawal request that can be used later to process the withdrawal
+     * @dev Process:
+     *      1. Validates user has sufficient shares
+     *      2. Updates user's accrued interest
+     *      3. Delegates to withdrawal manager to create the request
+     *      4. Returns request ID for future processing
+     * @dev Usage:
+     *      - Call this function to initiate withdrawal
+     *      - Wait for withdrawal window period (typically 24-48 hours)
+     *      - Call processWithdrawal(requestId) to complete the withdrawal
+     * @dev Benefits:
+     *      - No withdrawal fees (unlike instant withdrawal)
+     *      - Helps vault manage liquidity efficiently
+     *      - Prevents bank run scenarios
      */
     function requestWithdrawal(uint256 shares) external nonReentrant returns (uint256 requestId) {
         require(shares > 0, "Cannot withdraw 0 shares");
@@ -190,13 +206,26 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         // Update user's accrued interest
         _updateUserInterest(sender);
 
-        // Delegate to withdrawal manager
-        return withdrawalManager.requestWithdrawal(shares);
+        // Delegate to withdrawal manager with sender address
+        return withdrawalManager.requestWithdrawalForUser(sender, shares);
     }
 
     /**
      * @dev Process withdrawal request after window period
-     * @param requestId ID of the withdrawal request
+     * @notice Completes a withdrawal request that was created earlier and has passed the required waiting period.
+     * @param requestId ID of the withdrawal request (obtained from requestWithdrawal)
+     * @dev Requirements:
+     *      - Request must exist and belong to the caller
+     *      - Withdrawal window period must have elapsed
+     *      - Request must not be already processed or cancelled
+     * @dev Process:
+     *      1. Updates user's accrued interest
+     *      2. Delegates to withdrawal manager for validation and processing
+     *      3. Withdrawal manager calls back to processVaultWithdrawal
+     *      4. Vault ensures liquidity and transfers tokens to user
+     * @dev Gas Optimization:
+     *      - Consider processing multiple requests in batch if you have many
+     *      - Interest is updated automatically during processing
      */
     function processWithdrawal(uint256 requestId) external nonReentrant {
         address sender = _msgSender();
@@ -204,8 +233,8 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         // Update user's accrued interest
         _updateUserInterest(sender);
 
-        // Delegate to withdrawal manager
-        withdrawalManager.processWithdrawal(requestId);
+        // Delegate to withdrawal manager with user address
+        withdrawalManager.processWithdrawalForUser(sender, requestId);
     }
 
     /**
@@ -255,7 +284,25 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
 
     /**
      * @dev Instant withdrawal with fee
-     * @param shares Number of shares to redeem instantly
+     * @notice Allows immediate withdrawal of funds by paying a fee, bypassing the withdrawal window.
+     * @param shares Number of shares to redeem instantly - must be > 0 and <= user's available shares
+     * @dev Trade-offs:
+     *      - Pros: Immediate access to funds, no waiting period
+     *      - Cons: Charges a fee (typically 0.5-2% of withdrawal amount)
+     * @dev Process:
+     *      1. Validates user has sufficient shares
+     *      2. Updates user's accrued interest
+     *      3. Delegates to withdrawal manager for fee calculation and processing
+     *      4. Withdrawal manager calls back to processVaultWithdrawal
+     *      5. User receives net amount (withdrawal amount - fee)
+     * @dev Fee Structure:
+     *      - Fee percentage is configurable by admin
+     *      - Fee remains in vault as protocol revenue
+     *      - Net amount = gross_amount * (1 - fee_percentage)
+     * @dev Use Cases:
+     *      - Emergency fund access
+     *      - Time-sensitive opportunities
+     *      - Users who prefer convenience over cost
      */
     function instantWithdrawal(uint256 shares) external nonReentrant {
         require(shares > 0, "Cannot withdraw 0 shares");
@@ -265,8 +312,47 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         // Update user's accrued interest
         _updateUserInterest(sender);
 
-        // Delegate to withdrawal manager
-        withdrawalManager.instantWithdrawal(shares);
+        // Delegate to withdrawal manager with user address
+        withdrawalManager.instantWithdrawalForUser(sender, shares);
+    }
+
+    /**
+     * @dev Process vault withdrawal (called by withdrawal manager)
+     * @notice This function is called by the withdrawal manager to execute the actual withdrawal.
+     *         It handles the core vault operations: updating user state, ensuring liquidity, and transferring tokens.
+     * @param user User address who is withdrawing funds
+     * @param shares Number of shares to burn/withdraw from user's balance
+     * @param amount Amount of USDC to transfer to the user (in 6 decimals)
+     * @dev Requirements:
+     *      - Can only be called by the withdrawal manager contract
+     *      - User must have sufficient shares to withdraw
+     *      - Vault must have sufficient liquidity (will withdraw from strategies if needed)
+     * @dev Effects:
+     *      - Reduces user's share balance by specified amount
+     *      - Reduces total shares in the vault
+     *      - Ensures sufficient liquidity by withdrawing from strategies if necessary
+     *      - Transfers USDC tokens directly to the user
+     *      - Emits Withdraw event for tracking
+     * @dev Security:
+     *      - Only withdrawal manager can call this function
+     *      - Validates user has sufficient shares before processing
+     *      - Uses SafeERC20 for secure token transfers
+     */
+    function processVaultWithdrawal(address user, uint256 shares, uint256 amount) external {
+        require(msg.sender == address(withdrawalManager), "Only withdrawal manager can call");
+        require(userShares[user] >= shares, "Insufficient shares");
+
+        // Update user state
+        userShares[user] -= shares;
+        totalShares -= shares;
+
+        // Ensure we have enough liquidity
+        _ensureLiquidity(amount);
+
+        // Transfer tokens to user
+        asset.safeTransfer(user, amount);
+
+        emit Withdraw(user, amount, shares);
     }
 
     /**

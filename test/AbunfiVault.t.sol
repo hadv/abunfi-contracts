@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/AbunfiVault.sol";
 import "../src/mocks/MockERC20.sol";
+import "../src/RiskProfileManager.sol";
 
 contract AbunfiVaultTest is Test {
     AbunfiVault public vault;
@@ -13,7 +14,7 @@ contract AbunfiVaultTest is Test {
     address public user1;
     address public user2;
 
-    event Deposit(address indexed user, uint256 amount, uint256 shares);
+    event Deposit(address indexed user, uint256 amount, uint256 shares, RiskProfileManager.RiskLevel riskLevel);
     event Withdraw(address indexed user, uint256 amount, uint256 shares);
 
     function setUp() public {
@@ -53,7 +54,7 @@ contract AbunfiVaultTest is Test {
         mockUSDC.approve(address(vault), depositAmount);
 
         vm.expectEmit(true, true, true, true);
-        emit Deposit(user1, depositAmount, depositAmount * 1e12);
+        emit Deposit(user1, depositAmount, depositAmount * 1e12, RiskProfileManager.RiskLevel.MEDIUM);
 
         vault.deposit(depositAmount);
         vm.stopPrank();

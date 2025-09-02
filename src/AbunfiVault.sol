@@ -126,8 +126,14 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         // Transfer tokens
         asset.safeTransferFrom(sender, address(this), amount);
 
-        // Get user's risk level for allocation
-        RiskProfileManager.RiskLevel riskLevel = riskProfileManager.getUserRiskLevel(sender);
+        // Get user's risk level for allocation (with fallback)
+        RiskProfileManager.RiskLevel riskLevel;
+        try riskProfileManager.getUserRiskLevel(sender) returns (RiskProfileManager.RiskLevel level) {
+            riskLevel = level;
+        } catch {
+            // Fallback to MEDIUM risk if risk manager call fails
+            riskLevel = RiskProfileManager.RiskLevel.MEDIUM;
+        }
 
         // Trigger risk-based allocation
         _allocateBasedOnRisk(amount, riskLevel);
@@ -147,9 +153,17 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
 
         address sender = _msgSender();
 
-        // Set user's risk profile if they can update it
-        if (riskProfileManager.canUpdateRiskProfile(sender)) {
-            riskProfileManager.setRiskProfileForUser(sender, riskLevel);
+        // Set user's risk profile if they can update it (with fallback)
+        try riskProfileManager.canUpdateRiskProfile(sender) returns (bool canUpdate) {
+            if (canUpdate) {
+                try riskProfileManager.setRiskProfileForUser(sender, riskLevel) {
+                    // Risk profile updated successfully
+                } catch {
+                    // Risk profile update failed, continue with deposit
+                }
+            }
+        } catch {
+            // Risk manager call failed, continue with deposit
         }
 
         // Update user's accrued interest before new deposit
@@ -790,8 +804,18 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
      * @param riskLevel User's risk level
      */
     function _allocateBasedOnRisk(uint256 amount, RiskProfileManager.RiskLevel riskLevel) internal {
-        // Get risk-based allocation from risk profile manager
-        (address[] memory riskStrategies, uint256[] memory allocations) = riskProfileManager.getUserAllocations(msg.sender);
+        // Get risk-based allocation from risk profile manager (with fallback)
+        address[] memory riskStrategies;
+        uint256[] memory allocations;
+
+        try riskProfileManager.getUserAllocations(msg.sender) returns (address[] memory riskStrats, uint256[] memory allocs) {
+            riskStrategies = riskStrats;
+            allocations = allocs;
+        } catch {
+            // Fallback to default allocation if risk manager call fails
+            _allocateByWeight(amount);
+            return;
+        }
 
         if (riskStrategies.length == 0) {
             // Fallback to default allocation if no risk-specific strategies

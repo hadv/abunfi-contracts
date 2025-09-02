@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../src/AbunfiVault.sol";
 import "../src/mocks/MockERC20.sol";
 import "../src/eip7702/AbunfiSmartAccount.sol";
+import "../src/RiskProfileManager.sol";
 import "../src/eip7702/EIP7702Paymaster.sol";
 import "../src/eip7702/EIP7702Bundler.sol";
 
@@ -32,7 +33,7 @@ contract AbunfiVaultWithGaslessTest is Test {
     uint256 public constant MINIMUM_DEPOSIT = 4e6; // 4 USDC
     uint256 public constant DEPOSIT_AMOUNT = 100e6; // 100 USDC
 
-    event Deposit(address indexed user, uint256 amount, uint256 shares);
+    event Deposit(address indexed user, uint256 amount, uint256 shares, RiskProfileManager.RiskLevel riskLevel);
     event Withdraw(address indexed user, uint256 amount, uint256 shares);
 
     function setUp() public {
@@ -54,7 +55,11 @@ contract AbunfiVaultWithGaslessTest is Test {
 
         // Deploy USDC and Vault with gasless support
         mockUSDC = new MockERC20("USD Coin", "USDC", 6);
-        vault = new AbunfiVault(address(mockUSDC), address(bundler)); // Use bundler as trusted forwarder
+        // Create mock risk management contracts for testing
+        address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        address mockWithdrawalManager = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+
+        vault = new AbunfiVault(address(mockUSDC), address(bundler), mockRiskManager, mockWithdrawalManager); // Use bundler as trusted forwarder
 
         // Setup users
         vm.deal(user1, 1 ether);
@@ -81,7 +86,7 @@ contract AbunfiVaultWithGaslessTest is Test {
         mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
 
         vm.expectEmit(true, true, false, true);
-        emit Deposit(user1, DEPOSIT_AMOUNT, DEPOSIT_AMOUNT * 1e18 / 1e6);
+        emit Deposit(user1, DEPOSIT_AMOUNT, DEPOSIT_AMOUNT * 1e18 / 1e6, RiskProfileManager.RiskLevel.MEDIUM);
 
         vault.deposit(DEPOSIT_AMOUNT);
 

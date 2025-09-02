@@ -35,7 +35,9 @@ contract StrategyManagerTest is Test {
         mockUSDC = new MockERC20("USD Coin", "USDC", 6);
 
         // Deploy StrategyManager
-        strategyManager = new StrategyManager();
+        // Create mock risk profile manager for testing
+        address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        strategyManager = new StrategyManager(mockRiskManager);
 
         // Create mock strategies
         mockAaveStrategy = new MockStrategy(

@@ -42,7 +42,11 @@ contract PaymasterVaultIntegrationTest is Test {
         smartAccountImpl = new AbunfiSmartAccount();
         paymaster = new EIP7702Paymaster();
         bundler = new EIP7702Bundler();
-        vault = new AbunfiVault(address(usdc), address(bundler));
+        // Create mock risk management contracts for testing
+        address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        address mockWithdrawalManager = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+
+        vault = new AbunfiVault(address(usdc), address(bundler), mockRiskManager, mockWithdrawalManager);
 
         // Configure paymaster and bundler
         bundler.addPaymaster(address(paymaster));

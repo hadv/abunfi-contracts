@@ -48,12 +48,14 @@ contract MockStrategy is IAbunfiStrategy, Ownable, ReentrancyGuard {
 
     /**
      * @dev Deposit assets into the strategy
+     * Note: Tokens should already be transferred by vault before calling this
      */
     function deposit(uint256 amount) external override nonReentrant {
         require(!shouldFailDeposit, "Mock: Deposit failed");
         require(amount > 0, "Cannot deposit 0");
 
-        SafeERC20.safeTransferFrom(_asset, msg.sender, address(this), amount);
+        // Tokens should already be transferred by vault
+        // Just track the deposit amount
         totalDeposited += amount;
 
         emit Deposited(amount);

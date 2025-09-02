@@ -71,7 +71,11 @@ contract DeployEIP7702 is Script {
 
         // 5. Deploy AbunfiVault (no trusted forwarder needed for EIP-7702)
         console.log("\n5. Deploying AbunfiVault...");
-        AbunfiVault vault = new AbunfiVault(usdcAddress, address(0));
+        // Deploy risk management contracts first
+        address riskProfileManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
+        address withdrawalManager = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+
+        AbunfiVault vault = new AbunfiVault(usdcAddress, address(0), riskProfileManager, withdrawalManager);
         console.log("AbunfiVault deployed at:", address(vault));
 
         // 6. Configure the system

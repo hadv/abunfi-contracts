@@ -46,9 +46,9 @@ contract ComprehensiveIntegrationTestsTest is Test {
     address public liquidator;
 
     // Test constants
-    uint256 constant WHALE_DEPOSIT = 10_000_000 * 10**6; // 10M USDC
-    uint256 constant RETAIL_DEPOSIT = 10_000 * 10**6; // 10k USDC
-    uint256 constant ATTACK_AMOUNT = 1_000_000 * 10**6; // 1M USDC
+    uint256 constant WHALE_DEPOSIT = 10_000_000 * 10 ** 6; // 10M USDC
+    uint256 constant RETAIL_DEPOSIT = 10_000 * 10 ** 6; // 10k USDC
+    uint256 constant ATTACK_AMOUNT = 1_000_000 * 10 ** 6; // 1M USDC
 
     event SystemStressTest(string scenario, bool passed, string details);
     event MarketCrashSimulation(uint256 totalLoss, uint256 usersAffected);
@@ -88,29 +88,16 @@ contract ComprehensiveIntegrationTestsTest is Test {
         withdrawalManager = new WithdrawalManager(address(0), address(mockUSDC));
         strategyManager = new StrategyManager(address(riskManager));
 
-        vault = new AbunfiVault(
-            address(mockUSDC),
-            address(0),
-            address(riskManager),
-            address(withdrawalManager)
-        );
+        vault = new AbunfiVault(address(mockUSDC), address(0), address(riskManager), address(withdrawalManager));
     }
 
     function _setupStrategies() internal {
         // Deploy strategies
-        aaveStrategy = new AaveStrategy(
-            address(mockUSDC),
-            address(mockAavePool),
-            address(mockAaveDataProvider),
-            address(vault)
-        );
+        aaveStrategy =
+            new AaveStrategy(address(mockUSDC), address(mockAavePool), address(mockAaveDataProvider), address(vault));
 
-        compoundStrategy = new CompoundStrategy(
-            address(mockUSDC),
-            address(mockComet),
-            address(mockCometRewards),
-            address(vault)
-        );
+        compoundStrategy =
+            new CompoundStrategy(address(mockUSDC), address(mockComet), address(mockCometRewards), address(vault));
 
         // Add strategies to vault
         vault.addStrategy(address(aaveStrategy));
@@ -293,8 +280,8 @@ contract ComprehensiveIntegrationTestsTest is Test {
         try this._performSandwichAttack() {
             // Attack executed, check if profit is reasonable
             uint256 attackerBalanceAfter = mockUSDC.balanceOf(attacker);
-            uint256 profit = attackerBalanceAfter > attackerBalanceBefore ?
-                attackerBalanceAfter - attackerBalanceBefore : 0;
+            uint256 profit =
+                attackerBalanceAfter > attackerBalanceBefore ? attackerBalanceAfter - attackerBalanceBefore : 0;
 
             // If profit is excessive (>10%), consider attack successful (bad)
             // If profit is reasonable (<10%), system handled it well (good)
@@ -308,14 +295,14 @@ contract ComprehensiveIntegrationTestsTest is Test {
         // Attacker tries sandwich attack during volatility
         vm.startPrank(attacker);
         mockUSDC.approve(address(vault), ATTACK_AMOUNT);
-        
+
         // Front-run
         vault.deposit(ATTACK_AMOUNT);
-        
+
         // Back-run (immediate withdrawal)
         uint256 attackerShares = vault.userShares(attacker);
         vault.withdraw(attackerShares);
-        
+
         vm.stopPrank();
     }
 
@@ -330,14 +317,14 @@ contract ComprehensiveIntegrationTestsTest is Test {
     function _causeStrategyFailures() external {
         // Aave strategy fails
         mockAavePool.setLiquidityCrisis(true);
-        
+
         // Compound strategy fails
         mockComet.setSupplyRate(0);
-        
+
         // Try to harvest - should handle failures gracefully
         vm.prank(address(vault));
         aaveStrategy.harvest();
-        
+
         vm.prank(address(vault));
         compoundStrategy.harvest();
     }
@@ -353,14 +340,14 @@ contract ComprehensiveIntegrationTestsTest is Test {
     function _executeEmergencyProcedures() external {
         // Pause the vault
         vault.pause();
-        
+
         // Emergency withdrawal from strategies
         vm.prank(address(vault));
         aaveStrategy.withdrawAll();
-        
+
         vm.prank(address(vault));
         compoundStrategy.withdrawAll();
-        
+
         // Unpause
         vault.unpause();
     }
@@ -415,11 +402,11 @@ contract ComprehensiveIntegrationTestsTest is Test {
     function _testBasicOperations() external {
         address newUser = makeAddr("newUser");
         mockUSDC.mint(newUser, RETAIL_DEPOSIT);
-        
+
         vm.startPrank(newUser);
         mockUSDC.approve(address(vault), RETAIL_DEPOSIT);
         vault.deposit(RETAIL_DEPOSIT);
-        
+
         uint256 userShares = vault.userShares(newUser);
         vault.withdraw(userShares);
         vm.stopPrank();
@@ -430,12 +417,12 @@ contract ComprehensiveIntegrationTestsTest is Test {
         uint256 whaleBalance = mockUSDC.balanceOf(whale);
         uint256 user1Balance = mockUSDC.balanceOf(retailUser1);
         uint256 user2Balance = mockUSDC.balanceOf(retailUser2);
-        
+
         // Users should recover at least 70% of their deposits in worst case
         bool whaleProtected = whaleBalance >= WHALE_DEPOSIT * 70 / 100;
         bool user1Protected = user1Balance >= RETAIL_DEPOSIT * 70 / 100;
         bool user2Protected = user2Balance >= RETAIL_DEPOSIT * 70 / 100;
-        
+
         return whaleProtected && user1Protected && user2Protected;
     }
 
@@ -445,25 +432,25 @@ contract ComprehensiveIntegrationTestsTest is Test {
         // Simulate 1 year of operations
         uint256 timeStep = 30 days; // Monthly operations
         uint256 totalTime = 365 days;
-        
+
         _setupNormalOperations();
-        
+
         for (uint256 time = 0; time < totalTime; time += timeStep) {
             vm.warp(block.timestamp + timeStep);
-            
+
             // Monthly yield generation
             vm.prank(address(vault));
             aaveStrategy.harvest();
-            
+
             vm.prank(address(vault));
             compoundStrategy.harvest();
-            
+
             // Some users deposit/withdraw monthly
             if (time % (timeStep * 2) == 0) {
                 _simulateMonthlyActivity();
             }
         }
-        
+
         // Verify system stability after extended operations
         assertTrue(vault.totalShares() > 0, "System should remain stable long-term");
         assertTrue(vault.totalDeposits() > 0, "Deposits should be maintained long-term");
@@ -472,7 +459,7 @@ contract ComprehensiveIntegrationTestsTest is Test {
     function _simulateMonthlyActivity() internal {
         address monthlyUser = makeAddr(string(abi.encodePacked("monthly", block.timestamp)));
         mockUSDC.mint(monthlyUser, RETAIL_DEPOSIT);
-        
+
         vm.startPrank(monthlyUser);
         mockUSDC.approve(address(vault), RETAIL_DEPOSIT);
         vault.deposit(RETAIL_DEPOSIT);
@@ -496,7 +483,7 @@ contract ComprehensiveIntegrationTestsTest is Test {
         // Attacker tries to exploit low liquidity
         vm.startPrank(attacker);
         mockUSDC.approve(address(vault), vault.MINIMUM_DEPOSIT());
-        
+
         try vault.deposit(vault.MINIMUM_DEPOSIT()) {
             // If deposit succeeds, try immediate withdrawal
             uint256 attackerShares = vault.userShares(attacker);

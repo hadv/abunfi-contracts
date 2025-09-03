@@ -29,8 +29,8 @@ contract AbunfiVaultAdvancedSecurityTest is Test {
     address public user3;
 
     // Test constants
-    uint256 constant MINIMUM_DEPOSIT = 4 * 10**6; // 4 USDC
-    uint256 constant LARGE_AMOUNT = 1_000_000 * 10**6; // 1M USDC
+    uint256 constant MINIMUM_DEPOSIT = 4 * 10 ** 6; // 4 USDC
+    uint256 constant LARGE_AMOUNT = 1_000_000 * 10 ** 6; // 1M USDC
     uint256 constant MAX_UINT256 = type(uint256).max;
     uint256 constant DUST_AMOUNT = 1; // 1 wei
 
@@ -117,7 +117,7 @@ contract AbunfiVaultAdvancedSecurityTest is Test {
         // Test with maximum possible values to check for overflow
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), MAX_UINT256);
-        
+
         // This should not overflow due to SafeMath or Solidity 0.8+ built-in checks
         vm.expectRevert(); // Should revert due to insufficient balance, not overflow
         vault.deposit(MAX_UINT256);
@@ -128,9 +128,9 @@ contract AbunfiVaultAdvancedSecurityTest is Test {
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), MINIMUM_DEPOSIT);
         vault.deposit(MINIMUM_DEPOSIT);
-        
+
         uint256 userShares = vault.userShares(user1);
-        
+
         // Try to withdraw more shares than user has
         vm.expectRevert("Insufficient shares");
         vault.withdraw(userShares + 1);
@@ -142,7 +142,7 @@ contract AbunfiVaultAdvancedSecurityTest is Test {
     function test_ZeroValueEdgeCases_ZeroDeposit() public {
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), 0);
-        
+
         vm.expectRevert("Amount below minimum");
         vault.deposit(0);
         vm.stopPrank();
@@ -152,7 +152,7 @@ contract AbunfiVaultAdvancedSecurityTest is Test {
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), MINIMUM_DEPOSIT);
         vault.deposit(MINIMUM_DEPOSIT);
-        
+
         vm.expectRevert("Cannot withdraw 0 shares");
         vault.withdraw(0);
         vm.stopPrank();
@@ -164,15 +164,15 @@ contract AbunfiVaultAdvancedSecurityTest is Test {
         // Attacker tries to make many minimal deposits to manipulate share price
         vm.startPrank(attacker);
         mockUSDC.approve(address(vault), MINIMUM_DEPOSIT * 100);
-        
+
         // First deposit should work
         vault.deposit(MINIMUM_DEPOSIT);
-        
+
         // Subsequent minimal deposits should still work but not break the system
-        for (uint i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             vault.deposit(MINIMUM_DEPOSIT);
         }
-        
+
         // Verify system integrity
         assertTrue(vault.totalDeposits() > 0);
         assertTrue(vault.totalShares() > 0);
@@ -186,45 +186,44 @@ contract AbunfiVaultAdvancedSecurityTest is Test {
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), MINIMUM_DEPOSIT);
         vault.deposit(MINIMUM_DEPOSIT);
-        
+
         uint256 initialShares = vault.userShares(user1);
         vm.stopPrank();
-        
+
         // Second user deposits same amount
         vm.startPrank(user2);
         mockUSDC.approve(address(vault), MINIMUM_DEPOSIT);
         vault.deposit(MINIMUM_DEPOSIT);
-        
+
         uint256 secondShares = vault.userShares(user2);
         vm.stopPrank();
-        
+
         // Shares should be equal or very close (within rounding tolerance)
-        uint256 difference = initialShares > secondShares ? 
-            initialShares - secondShares : secondShares - initialShares;
+        uint256 difference = initialShares > secondShares ? initialShares - secondShares : secondShares - initialShares;
         assertTrue(difference <= 1, "Rounding error too large");
     }
 
     // ============ FRONT-RUNNING PROTECTION TESTS ============
 
     function test_FrontRunning_DepositOrderIndependence() public {
-        uint256 amount1 = 100 * 10**6; // 100 USDC
-        uint256 amount2 = 200 * 10**6; // 200 USDC
-        
+        uint256 amount1 = 100 * 10 ** 6; // 100 USDC
+        uint256 amount2 = 200 * 10 ** 6; // 200 USDC
+
         // Simulate front-running scenario
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), amount1);
         vault.deposit(amount1);
         vm.stopPrank();
-        
+
         vm.startPrank(user2);
         mockUSDC.approve(address(vault), amount2);
         vault.deposit(amount2);
         vm.stopPrank();
-        
+
         // Verify fair share distribution
         uint256 shares1 = vault.userShares(user1);
         uint256 shares2 = vault.userShares(user2);
-        
+
         // User2 should have approximately 2x shares of user1
         assertTrue(shares2 > shares1 * 19 / 10, "Share distribution unfair"); // Allow 10% tolerance
         assertTrue(shares2 < shares1 * 21 / 10, "Share distribution unfair");
@@ -235,10 +234,10 @@ contract AbunfiVaultAdvancedSecurityTest is Test {
     function test_PausedState_DepositBlocked() public {
         // Pause the vault
         vault.pause();
-        
+
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), MINIMUM_DEPOSIT);
-        
+
         vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
         vault.deposit(MINIMUM_DEPOSIT);
         vm.stopPrank();
@@ -250,29 +249,29 @@ contract AbunfiVaultAdvancedSecurityTest is Test {
         mockUSDC.approve(address(vault), MINIMUM_DEPOSIT);
         vault.deposit(MINIMUM_DEPOSIT);
         vm.stopPrank();
-        
+
         // Pause the vault
         vault.pause();
-        
+
         // Withdrawals should still work when paused
         vm.startPrank(user1);
         uint256 userShares = vault.userShares(user1);
         vault.withdraw(userShares);
         vm.stopPrank();
-        
+
         assertEq(vault.userShares(user1), 0);
     }
 
     // ============ MAXIMUM VALUE STRESS TESTS ============
 
     function test_MaxValueStress_LargeDeposit() public {
-        uint256 largeAmount = 100_000_000 * 10**6; // 100M USDC
+        uint256 largeAmount = 100_000_000 * 10 ** 6; // 100M USDC
         mockUSDC.mint(user1, largeAmount);
-        
+
         vm.startPrank(user1);
         mockUSDC.approve(address(vault), largeAmount);
         vault.deposit(largeAmount);
-        
+
         // Verify the deposit was processed correctly
         assertEq(vault.userDeposits(user1), largeAmount);
         assertTrue(vault.userShares(user1) > 0);
@@ -327,7 +326,7 @@ contract ReentrancyAttacker {
         if (attacking) {
             attacking = false;
             // Try to reenter
-            vault.deposit(4 * 10**6);
+            vault.deposit(4 * 10 ** 6);
         }
     }
 }

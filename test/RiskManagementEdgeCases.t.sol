@@ -30,10 +30,12 @@ contract RiskManagementEdgeCasesTest is Test {
     address public aggressiveUser;
     address public riskManipulator;
 
-    uint256 constant DEPOSIT_AMOUNT = 10_000 * 10**6; // 10k USDC
-    uint256 constant LARGE_DEPOSIT = 1_000_000 * 10**6; // 1M USDC
+    uint256 constant DEPOSIT_AMOUNT = 10_000 * 10 ** 6; // 10k USDC
+    uint256 constant LARGE_DEPOSIT = 1_000_000 * 10 ** 6; // 1M USDC
 
-    event RiskProfileUpdated(address indexed user, RiskProfileManager.RiskLevel oldLevel, RiskProfileManager.RiskLevel newLevel);
+    event RiskProfileUpdated(
+        address indexed user, RiskProfileManager.RiskLevel oldLevel, RiskProfileManager.RiskLevel newLevel
+    );
     event RiskAllocationUpdated(RiskProfileManager.RiskLevel level, address[] strategies, uint256[] allocations);
     event EmergencyRiskAdjustment(address indexed user, RiskProfileManager.RiskLevel newLevel);
 
@@ -79,15 +81,15 @@ contract RiskManagementEdgeCasesTest is Test {
         strategyManager.addStrategy(
             address(lowRiskStrategy),
             100, // weight
-            20,  // low risk score
+            20, // low risk score
             5000, // 50% max allocation
-            500  // 5% min allocation
+            500 // 5% min allocation
         );
 
         strategyManager.addStrategy(
             address(mediumRiskStrategy),
             100, // weight
-            50,  // medium risk score
+            50, // medium risk score
             7000, // 70% max allocation
             1000 // 10% min allocation
         );
@@ -95,9 +97,9 @@ contract RiskManagementEdgeCasesTest is Test {
         strategyManager.addStrategy(
             address(highRiskStrategy),
             100, // weight
-            80,  // high risk score
+            80, // high risk score
             3000, // 30% max allocation
-            500  // 5% min allocation
+            500 // 5% min allocation
         );
 
         // Mint tokens to users
@@ -113,7 +115,7 @@ contract RiskManagementEdgeCasesTest is Test {
         // User sets initial risk profile
         vm.startPrank(conservativeUser);
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.LOW);
-        
+
         // Try to change immediately - should fail
         vm.expectRevert("Risk update cooldown not met");
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.HIGH);
@@ -121,7 +123,7 @@ contract RiskManagementEdgeCasesTest is Test {
 
         // Fast forward past cooldown
         vm.warp(block.timestamp + 25 hours);
-        
+
         // Should work now
         vm.startPrank(conservativeUser);
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.HIGH);
@@ -131,16 +133,16 @@ contract RiskManagementEdgeCasesTest is Test {
     function test_RiskProfile_RapidChangesBlocked() public {
         // User tries to rapidly change risk profiles to exploit system
         vm.startPrank(riskManipulator);
-        
+
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.LOW);
-        
+
         // Multiple rapid changes should be blocked
         vm.expectRevert("Risk update cooldown not met");
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.MEDIUM);
-        
+
         vm.expectRevert("Risk update cooldown not met");
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.HIGH);
-        
+
         vm.stopPrank();
     }
 
@@ -148,7 +150,7 @@ contract RiskManagementEdgeCasesTest is Test {
         // Setup users with different risk profiles
         vm.prank(conservativeUser);
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.LOW);
-        
+
         vm.prank(aggressiveUser);
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.HIGH);
 
@@ -183,7 +185,7 @@ contract RiskManagementEdgeCasesTest is Test {
         // Create extreme allocation imbalance
         address[] memory strategies = new address[](1);
         strategies[0] = address(highRiskStrategy);
-        
+
         uint256[] memory allocations = new uint256[](1);
         allocations[0] = 10000; // 100% to high risk
 
@@ -221,17 +223,13 @@ contract RiskManagementEdgeCasesTest is Test {
         // Try to rebalance to failing strategy - should handle gracefully
         address[] memory strategies = new address[](1);
         strategies[0] = address(failingStrategy);
-        
+
         uint256[] memory allocations = new uint256[](1);
         allocations[0] = 5000; // 50% allocation
 
         // This should either succeed with fallback or fail gracefully
         try riskManager.updateRiskAllocation(
-            RiskProfileManager.RiskLevel.LOW,
-            strategies,
-            allocations,
-            50,
-            "Failing strategy test"
+            RiskProfileManager.RiskLevel.LOW, strategies, allocations, 50, "Failing strategy test"
         ) {
             // If it succeeds, verify system integrity
             assertTrue(vault.totalShares() > 0, "System should maintain integrity");
@@ -317,18 +315,14 @@ contract RiskManagementEdgeCasesTest is Test {
         address[] memory strategies = new address[](2);
         strategies[0] = address(lowRiskStrategy);
         strategies[1] = address(mediumRiskStrategy);
-        
+
         uint256[] memory allocations = new uint256[](2);
         allocations[0] = 5000; // 50%
         allocations[1] = 5000; // 50%
 
         // Should work at exact 100%
         riskManager.updateRiskAllocation(
-            RiskProfileManager.RiskLevel.MEDIUM,
-            strategies,
-            allocations,
-            60,
-            "Boundary test"
+            RiskProfileManager.RiskLevel.MEDIUM, strategies, allocations, 60, "Boundary test"
         );
 
         // Test over-allocation
@@ -336,11 +330,7 @@ contract RiskManagementEdgeCasesTest is Test {
 
         vm.expectRevert("Total allocation must equal 100%");
         riskManager.updateRiskAllocation(
-            RiskProfileManager.RiskLevel.MEDIUM,
-            strategies,
-            allocations,
-            60,
-            "Over-allocation test"
+            RiskProfileManager.RiskLevel.MEDIUM, strategies, allocations, 60, "Over-allocation test"
         );
     }
 
@@ -355,11 +345,7 @@ contract RiskManagementEdgeCasesTest is Test {
         // Should reject zero allocation since total must equal 100%
         vm.expectRevert("Total allocation must equal 100%");
         riskManager.updateRiskAllocation(
-            RiskProfileManager.RiskLevel.LOW,
-            strategies,
-            allocations,
-            30,
-            "Zero allocation test"
+            RiskProfileManager.RiskLevel.LOW, strategies, allocations, 30, "Zero allocation test"
         );
     }
 
@@ -374,7 +360,7 @@ contract RiskManagementEdgeCasesTest is Test {
 
         // Simulate risk manager failure by setting invalid state
         // The vault should handle this gracefully with fallbacks
-        
+
         // User should still be able to withdraw even if risk manager fails
         vm.startPrank(conservativeUser);
         uint256 userShares = vault.userShares(conservativeUser);
@@ -391,10 +377,10 @@ contract RiskManagementEdgeCasesTest is Test {
         // Multiple users change risk profiles simultaneously
         vm.prank(conservativeUser);
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.LOW);
-        
+
         vm.prank(moderateUser);
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.MEDIUM);
-        
+
         vm.prank(aggressiveUser);
         riskManager.setRiskProfile(RiskProfileManager.RiskLevel.HIGH);
 

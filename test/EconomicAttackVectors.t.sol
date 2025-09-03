@@ -26,9 +26,9 @@ contract EconomicAttackVectorsTest is Test {
     address public mevBot;
     address public frontRunner;
 
-    uint256 constant LARGE_AMOUNT = 1_000_000 * 10**6; // 1M USDC
-    uint256 constant VICTIM_AMOUNT = 100_000 * 10**6; // 100k USDC
-    uint256 constant ATTACK_AMOUNT = 10_000_000 * 10**6; // 10M USDC
+    uint256 constant LARGE_AMOUNT = 1_000_000 * 10 ** 6; // 1M USDC
+    uint256 constant VICTIM_AMOUNT = 100_000 * 10 ** 6; // 100k USDC
+    uint256 constant ATTACK_AMOUNT = 10_000_000 * 10 ** 6; // 10M USDC
 
     event SandwichAttackDetected(address indexed attacker, uint256 frontRunAmount, uint256 backRunAmount);
     event MEVExtracted(address indexed bot, uint256 extractedValue);
@@ -75,7 +75,7 @@ contract EconomicAttackVectorsTest is Test {
 
     function test_SandwichAttack_DepositManipulation() public {
         // Attacker front-runs victim's deposit to manipulate share price
-        
+
         // 1. Attacker deposits large amount first (front-run)
         vm.startPrank(attacker);
         mockUSDC.approve(address(vault), LARGE_AMOUNT);
@@ -83,7 +83,7 @@ contract EconomicAttackVectorsTest is Test {
         vm.stopPrank();
 
         uint256 attackerSharesBefore = vault.userShares(attacker);
-        
+
         // 2. Victim deposits (the transaction being sandwiched)
         vm.startPrank(victim);
         mockUSDC.approve(address(vault), VICTIM_AMOUNT);
@@ -91,7 +91,7 @@ contract EconomicAttackVectorsTest is Test {
         vm.stopPrank();
 
         uint256 victimShares = vault.userShares(victim);
-        
+
         // 3. Attacker withdraws (back-run)
         vm.startPrank(attacker);
         vault.withdraw(attackerSharesBefore);
@@ -101,10 +101,9 @@ contract EconomicAttackVectorsTest is Test {
         // In a fair system, victim should get proportional shares
         uint256 expectedVictimShares = VICTIM_AMOUNT * vault.SHARES_MULTIPLIER() / 1e6;
         uint256 tolerance = expectedVictimShares / 100; // 1% tolerance
-        
+
         assertTrue(
-            victimShares >= expectedVictimShares - tolerance,
-            "Victim shares should not be significantly diluted"
+            victimShares >= expectedVictimShares - tolerance, "Victim shares should not be significantly diluted"
         );
     }
 
@@ -121,7 +120,7 @@ contract EconomicAttackVectorsTest is Test {
         vm.stopPrank();
 
         // Add some yield to make the attack more profitable
-        mockStrategy.addYield(50_000 * 10**6); // 50k USDC yield
+        mockStrategy.addYield(50_000 * 10 ** 6); // 50k USDC yield
 
         uint256 victimBalanceBefore = mockUSDC.balanceOf(victim);
         uint256 attackerBalanceBefore = mockUSDC.balanceOf(attacker);
@@ -159,10 +158,10 @@ contract EconomicAttackVectorsTest is Test {
 
     function test_FlashLoanAttack_SharePriceManipulation() public {
         FlashLoanAttacker attackContract = new FlashLoanAttacker(vault, mockUSDC);
-        
+
         // Fund the attack contract
         mockUSDC.mint(address(attackContract), ATTACK_AMOUNT);
-        
+
         // Victim makes initial deposit
         vm.startPrank(victim);
         mockUSDC.approve(address(vault), VICTIM_AMOUNT);
@@ -170,12 +169,12 @@ contract EconomicAttackVectorsTest is Test {
         vm.stopPrank();
 
         uint256 victimSharesBefore = vault.userShares(victim);
-        
+
         // Execute flash loan attack
         attackContract.executeFlashLoanAttack(ATTACK_AMOUNT);
-        
+
         uint256 victimSharesAfter = vault.userShares(victim);
-        
+
         // Victim's shares should not be significantly affected
         assertApproxEqRel(
             victimSharesAfter,
@@ -190,9 +189,9 @@ contract EconomicAttackVectorsTest is Test {
     function test_FrontRunning_DepositOrdering() public {
         // Simulate front-running scenario where attacker sees victim's transaction
         // and tries to profit by front-running it
-        
+
         uint256 frontRunAmount = VICTIM_AMOUNT * 10; // 10x victim's amount
-        
+
         // Front-runner deposits first
         vm.startPrank(frontRunner);
         mockUSDC.approve(address(vault), frontRunAmount);
@@ -200,7 +199,7 @@ contract EconomicAttackVectorsTest is Test {
         vm.stopPrank();
 
         uint256 frontRunnerShares = vault.userShares(frontRunner);
-        
+
         // Victim deposits after
         vm.startPrank(victim);
         mockUSDC.approve(address(vault), VICTIM_AMOUNT);
@@ -208,11 +207,11 @@ contract EconomicAttackVectorsTest is Test {
         vm.stopPrank();
 
         uint256 victimShares = vault.userShares(victim);
-        
+
         // Check if front-running provided unfair advantage
         uint256 frontRunnerSharesPerUSDC = frontRunnerShares * 1e18 / frontRunAmount;
         uint256 victimSharesPerUSDC = victimShares * 1e18 / VICTIM_AMOUNT;
-        
+
         // Shares per USDC should be approximately equal (fair pricing)
         assertApproxEqRel(
             frontRunnerSharesPerUSDC,
@@ -228,10 +227,10 @@ contract EconomicAttackVectorsTest is Test {
         // Attacker makes many tiny deposits to increase gas costs for other operations
         uint256 dustAmount = vault.MINIMUM_DEPOSIT(); // Minimum possible deposit
         uint256 numDustDeposits = 100;
-        
+
         vm.startPrank(attacker);
         mockUSDC.approve(address(vault), dustAmount * numDustDeposits);
-        
+
         for (uint256 i = 0; i < numDustDeposits; i++) {
             vault.deposit(dustAmount);
         }
@@ -239,14 +238,14 @@ contract EconomicAttackVectorsTest is Test {
 
         // Verify system still functions efficiently for normal users
         uint256 gasStart = gasleft();
-        
+
         vm.startPrank(victim);
         mockUSDC.approve(address(vault), VICTIM_AMOUNT);
         vault.deposit(VICTIM_AMOUNT);
         vm.stopPrank();
-        
+
         uint256 gasUsed = gasStart - gasleft();
-        
+
         // Gas usage should still be reasonable despite dust attack
         assertTrue(gasUsed < 500_000, "Dust attack should not significantly increase gas costs");
     }
@@ -255,10 +254,10 @@ contract EconomicAttackVectorsTest is Test {
         // Setup: Attacker has many small positions
         uint256 smallAmount = vault.MINIMUM_DEPOSIT();
         uint256 numPositions = 50;
-        
+
         vm.startPrank(attacker);
         mockUSDC.approve(address(vault), smallAmount * numPositions);
-        
+
         for (uint256 i = 0; i < numPositions; i++) {
             vault.deposit(smallAmount);
         }
@@ -268,7 +267,7 @@ contract EconomicAttackVectorsTest is Test {
         vm.startPrank(attacker);
         uint256 attackerShares = vault.userShares(attacker);
         uint256 sharesPerRequest = attackerShares / numPositions;
-        
+
         for (uint256 i = 0; i < numPositions; i++) {
             vault.requestWithdrawal(sharesPerRequest);
         }
@@ -278,11 +277,11 @@ contract EconomicAttackVectorsTest is Test {
         vm.startPrank(victim);
         mockUSDC.approve(address(vault), VICTIM_AMOUNT);
         vault.deposit(VICTIM_AMOUNT);
-        
+
         uint256 victimShares = vault.userShares(victim);
         vault.requestWithdrawal(victimShares);
         vm.stopPrank();
-        
+
         assertTrue(victimShares > 0, "Legitimate users should not be affected by withdrawal spam");
     }
 
@@ -290,7 +289,7 @@ contract EconomicAttackVectorsTest is Test {
 
     function test_SharePriceManipulation_InflationAttack() public {
         // Attacker tries to inflate share price to harm future depositors
-        
+
         // 1. Attacker makes initial deposit
         vm.startPrank(attacker);
         mockUSDC.approve(address(vault), LARGE_AMOUNT);
@@ -308,10 +307,10 @@ contract EconomicAttackVectorsTest is Test {
         vm.stopPrank();
 
         uint256 victimShares = vault.userShares(victim);
-        
+
         // Victim should still receive reasonable shares despite manipulation attempt
         assertTrue(victimShares > 0, "Victim should receive shares despite inflation attack");
-        
+
         // The share calculation should be protected against extreme manipulation
         uint256 minExpectedShares = VICTIM_AMOUNT / 2; // At least 50% of expected shares
         assertTrue(victimShares >= minExpectedShares, "Share inflation attack should be mitigated");
@@ -321,8 +320,8 @@ contract EconomicAttackVectorsTest is Test {
 
     function test_MEVExtraction_ArbitrageOpportunity() public {
         // Setup different yield rates to create arbitrage opportunity
-        mockStrategy.addYield(100_000 * 10**6); // Add significant yield
-        
+        mockStrategy.addYield(100_000 * 10 ** 6); // Add significant yield
+
         // MEV bot tries to extract value from yield distribution
         vm.startPrank(mevBot);
         mockUSDC.approve(address(vault), LARGE_AMOUNT);
@@ -357,7 +356,7 @@ contract EconomicAttackVectorsTest is Test {
 
     function test_GovernanceAttack_OwnershipManipulation() public {
         // Test that ownership cannot be manipulated through economic attacks
-        
+
         // Attacker becomes largest depositor
         vm.startPrank(attacker);
         mockUSDC.approve(address(vault), ATTACK_AMOUNT);
@@ -387,7 +386,7 @@ contract EconomicAttackVectorsTest is Test {
         vm.startPrank(attacker);
         mockUSDC.approve(address(vault), ATTACK_AMOUNT);
         vault.deposit(ATTACK_AMOUNT);
-        
+
         // Immediately try to withdraw everything
         uint256 attackerShares = vault.userShares(attacker);
         vault.withdraw(attackerShares);
@@ -411,23 +410,23 @@ contract EconomicAttackVectorsTest is Test {
 contract FlashLoanAttacker {
     AbunfiVault public vault;
     MockERC20 public token;
-    
+
     constructor(AbunfiVault _vault, MockERC20 _token) {
         vault = _vault;
         token = _token;
     }
-    
+
     function executeFlashLoanAttack(uint256 amount) external {
         // Simulate flash loan by using pre-funded tokens
         token.approve(address(vault), amount);
-        
+
         // 1. Deposit large amount to manipulate share price
         vault.deposit(amount);
-        
+
         // 2. Immediately withdraw to extract value
         uint256 shares = vault.userShares(address(this));
         vault.withdraw(shares);
-        
+
         // In a real flash loan, we would repay the loan here
         // For simulation, we just keep the tokens
     }

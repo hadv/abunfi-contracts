@@ -34,8 +34,8 @@ contract StrategyFailureScenariosTest is Test {
     address public user1;
     address public user2;
 
-    uint256 constant DEPOSIT_AMOUNT = 1000 * 10**6; // 1000 USDC
-    uint256 constant LARGE_DEPOSIT = 100_000 * 10**6; // 100k USDC
+    uint256 constant DEPOSIT_AMOUNT = 1000 * 10 ** 6; // 1000 USDC
+    uint256 constant LARGE_DEPOSIT = 100_000 * 10 ** 6; // 100k USDC
 
     event StrategyFailure(address indexed strategy, string reason);
     event EmergencyWithdrawal(address indexed strategy, uint256 amount);
@@ -52,7 +52,7 @@ contract StrategyFailureScenariosTest is Test {
         MockERC20 mockAUSDC = new MockERC20("Aave interest bearing USDC", "aUSDC", 6);
         mockAavePool = new MockAavePool(address(mockUSDC));
         mockAaveDataProvider = new MockAaveDataProvider();
-        
+
         // Setup Aave mocks
         mockAavePool.setAToken(address(mockUSDC), address(mockAUSDC));
         mockAaveDataProvider.setReserveTokens(address(mockUSDC), address(mockAUSDC), address(0), address(0));
@@ -67,27 +67,14 @@ contract StrategyFailureScenariosTest is Test {
         withdrawalManager = new WithdrawalManager(address(0), address(mockUSDC));
 
         // Deploy vault
-        vault = new AbunfiVault(
-            address(mockUSDC),
-            address(0),
-            address(riskManager),
-            address(withdrawalManager)
-        );
+        vault = new AbunfiVault(address(mockUSDC), address(0), address(riskManager), address(withdrawalManager));
 
         // Deploy strategies
-        aaveStrategy = new AaveStrategy(
-            address(mockUSDC),
-            address(mockAavePool),
-            address(mockAaveDataProvider),
-            address(vault)
-        );
+        aaveStrategy =
+            new AaveStrategy(address(mockUSDC), address(mockAavePool), address(mockAaveDataProvider), address(vault));
 
-        compoundStrategy = new CompoundStrategy(
-            address(mockUSDC),
-            address(mockComet),
-            address(mockCometRewards),
-            address(vault)
-        );
+        compoundStrategy =
+            new CompoundStrategy(address(mockUSDC), address(mockComet), address(mockCometRewards), address(vault));
 
         // Add strategies to vault
         vault.addStrategy(address(aaveStrategy));
@@ -128,7 +115,7 @@ contract StrategyFailureScenariosTest is Test {
         // Setup strategy with deposits
         vm.prank(address(vault));
         mockUSDC.transfer(address(aaveStrategy), DEPOSIT_AMOUNT);
-        
+
         vm.prank(address(vault));
         aaveStrategy.deposit(DEPOSIT_AMOUNT);
 
@@ -145,19 +132,19 @@ contract StrategyFailureScenariosTest is Test {
         // Test strategy behavior with extreme APY changes
         vm.prank(address(vault));
         mockUSDC.transfer(address(aaveStrategy), DEPOSIT_AMOUNT);
-        
+
         vm.prank(address(vault));
         aaveStrategy.deposit(DEPOSIT_AMOUNT);
 
         // Simulate extreme APY drop (negative rates)
         mockAaveDataProvider.setLiquidityRate(address(mockUSDC), 0);
-        
+
         uint256 apy = aaveStrategy.getAPY();
         assertEq(apy, 0, "APY should be 0 with zero liquidity rate");
 
         // Simulate extreme APY spike
         mockAaveDataProvider.setLiquidityRate(address(mockUSDC), 100e25); // 100% APY
-        
+
         apy = aaveStrategy.getAPY();
         assertTrue(apy > 0, "APY should be positive with high liquidity rate");
     }
@@ -191,7 +178,7 @@ contract StrategyFailureScenariosTest is Test {
         // Setup strategy
         vm.prank(address(vault));
         mockUSDC.transfer(address(compoundStrategy), DEPOSIT_AMOUNT);
-        
+
         vm.prank(address(vault));
         compoundStrategy.deposit(DEPOSIT_AMOUNT);
 
@@ -209,7 +196,7 @@ contract StrategyFailureScenariosTest is Test {
         // Setup: Deposit into strategy
         vm.prank(address(vault));
         mockUSDC.transfer(address(aaveStrategy), DEPOSIT_AMOUNT);
-        
+
         vm.prank(address(vault));
         aaveStrategy.deposit(DEPOSIT_AMOUNT);
 
@@ -296,8 +283,8 @@ contract StrategyFailureScenariosTest is Test {
 
     function test_ConcurrentOperations_MultipleUsers() public {
         // Simulate multiple users operating simultaneously
-        uint256 amount1 = 1000 * 10**6;
-        uint256 amount2 = 2000 * 10**6;
+        uint256 amount1 = 1000 * 10 ** 6;
+        uint256 amount2 = 2000 * 10 ** 6;
 
         // User 1 deposits
         vm.startPrank(user1);
@@ -345,7 +332,24 @@ contract FailingAavePool {
         revert("Aave pool is down");
     }
 
-    function getReserveData(address) external pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256) {
+    function getReserveData(address)
+        external
+        pure
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
         revert("Aave pool is down");
     }
 }

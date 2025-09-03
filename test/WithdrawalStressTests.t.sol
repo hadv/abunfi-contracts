@@ -23,7 +23,7 @@ contract WithdrawalStressTestsTest is Test {
     address public owner;
     address[] public users;
     uint256 constant NUM_USERS = 50;
-    uint256 constant DEPOSIT_AMOUNT = 10_000 * 10**6; // 10k USDC per user
+    uint256 constant DEPOSIT_AMOUNT = 10_000 * 10 ** 6; // 10k USDC per user
     uint256 constant TOTAL_DEPOSITS = NUM_USERS * DEPOSIT_AMOUNT; // 500k USDC total
 
     event WithdrawalRequested(address indexed user, uint256 requestId, uint256 shares, uint256 estimatedAmount);
@@ -69,10 +69,10 @@ contract WithdrawalStressTestsTest is Test {
     function _setupUsersWithDeposits() internal {
         for (uint256 i = 0; i < NUM_USERS; i++) {
             address user = users[i];
-            
+
             // Mint tokens to user
             mockUSDC.mint(user, DEPOSIT_AMOUNT);
-            
+
             // User deposits
             vm.startPrank(user);
             mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
@@ -86,11 +86,11 @@ contract WithdrawalStressTestsTest is Test {
     function test_BankRun_MassWithdrawalRequests() public {
         // Simulate bank run - all users request withdrawal simultaneously
         uint256[] memory requestIds = new uint256[](NUM_USERS);
-        
+
         for (uint256 i = 0; i < NUM_USERS; i++) {
             address user = users[i];
             uint256 userShares = vault.userShares(user);
-            
+
             vm.prank(user);
             requestIds[i] = vault.requestWithdrawal(userShares);
         }
@@ -108,11 +108,11 @@ contract WithdrawalStressTestsTest is Test {
     function test_BankRun_ProcessMassWithdrawals() public {
         // Setup mass withdrawal requests
         uint256[] memory requestIds = new uint256[](NUM_USERS);
-        
+
         for (uint256 i = 0; i < NUM_USERS; i++) {
             address user = users[i];
             uint256 userShares = vault.userShares(user);
-            
+
             vm.prank(user);
             requestIds[i] = vault.requestWithdrawal(userShares);
         }
@@ -125,14 +125,14 @@ contract WithdrawalStressTestsTest is Test {
         for (uint256 i = 0; i < NUM_USERS; i++) {
             address user = users[i];
             uint256 balanceBefore = mockUSDC.balanceOf(user);
-            
+
             vm.prank(user);
             vault.processWithdrawal(requestIds[i]);
-            
+
             uint256 balanceAfter = mockUSDC.balanceOf(user);
             uint256 withdrawn = balanceAfter - balanceBefore;
             totalWithdrawn += withdrawn;
-            
+
             assertTrue(withdrawn > 0, "User should receive funds");
         }
 
@@ -143,17 +143,18 @@ contract WithdrawalStressTestsTest is Test {
     function test_BankRun_PartialLiquidity() public {
         // Simulate scenario where vault has limited liquidity
         uint256 vaultBalance = mockUSDC.balanceOf(address(vault));
-        
+
         // Reduce vault liquidity to 50% of total deposits
         uint256 liquidityReduction = vaultBalance / 2;
         vm.prank(address(vault));
         mockUSDC.transfer(owner, liquidityReduction);
 
         // Mass withdrawal requests
-        for (uint256 i = 0; i < NUM_USERS / 2; i++) { // Only half the users
+        for (uint256 i = 0; i < NUM_USERS / 2; i++) {
+            // Only half the users
             address user = users[i];
             uint256 userShares = vault.userShares(user);
-            
+
             vm.prank(user);
             vault.requestWithdrawal(userShares);
         }
@@ -166,7 +167,8 @@ contract WithdrawalStressTestsTest is Test {
         for (uint256 i = 0; i < NUM_USERS / 2; i++) {
             address user = users[i];
 
-            try vault.processWithdrawal(i) { // Use request ID i
+            try vault.processWithdrawal(i) {
+                // Use request ID i
                 successfulWithdrawals++;
             } catch {
                 // Expected for some users when liquidity is limited
@@ -183,7 +185,7 @@ contract WithdrawalStressTestsTest is Test {
     function test_WithdrawalWindow_EarlyProcessing() public {
         address user = users[0];
         uint256 userShares = vault.userShares(user);
-        
+
         vm.prank(user);
         uint256 requestId = vault.requestWithdrawal(userShares);
 
@@ -196,7 +198,7 @@ contract WithdrawalStressTestsTest is Test {
     function test_WithdrawalWindow_ExactTiming() public {
         address user = users[0];
         uint256 userShares = vault.userShares(user);
-        
+
         vm.prank(user);
         uint256 requestId = vault.requestWithdrawal(userShares);
 
@@ -253,23 +255,24 @@ contract WithdrawalStressTestsTest is Test {
     function test_InstantWithdrawal_MassInstantWithdrawals() public {
         // Test system under mass instant withdrawal pressure
         uint256 totalFeesPaid = 0;
-        
-        for (uint256 i = 0; i < NUM_USERS / 4; i++) { // Quarter of users do instant withdrawal
+
+        for (uint256 i = 0; i < NUM_USERS / 4; i++) {
+            // Quarter of users do instant withdrawal
             address user = users[i];
             uint256 userShares = vault.userShares(user);
             uint256 balanceBefore = mockUSDC.balanceOf(user);
-            
+
             vm.prank(user);
             vault.instantWithdrawal(userShares);
-            
+
             uint256 balanceAfter = mockUSDC.balanceOf(user);
             uint256 received = balanceAfter - balanceBefore;
-            
+
             // Calculate expected fee (1% default)
             uint256 expectedAmount = userShares; // Simplified calculation
             uint256 expectedFee = expectedAmount / 100;
             totalFeesPaid += expectedFee;
-            
+
             assertTrue(received > 0, "User should receive funds");
             assertTrue(received < expectedAmount, "Should pay instant withdrawal fee");
         }
@@ -281,13 +284,13 @@ contract WithdrawalStressTestsTest is Test {
         address user = users[0];
         uint256 userShares = vault.userShares(user);
         uint256 balanceBefore = mockUSDC.balanceOf(user);
-        
+
         vm.prank(user);
         vault.instantWithdrawal(userShares);
-        
+
         uint256 balanceAfter = mockUSDC.balanceOf(user);
         uint256 received = balanceAfter - balanceBefore;
-        
+
         // Verify fee was applied correctly
         // The received amount should be less than the full share value due to fee
         assertTrue(received > 0, "Should receive some funds");
@@ -303,24 +306,24 @@ contract WithdrawalStressTestsTest is Test {
     function test_InterestAccrual_DuringWithdrawalWindow() public {
         address user = users[0];
         uint256 userShares = vault.userShares(user);
-        
+
         // Request withdrawal
         vm.prank(user);
         uint256 requestId = vault.requestWithdrawal(userShares);
 
         // Simulate yield generation during withdrawal window
-        mockStrategy.addYield(1000 * 10**6); // 1000 USDC yield
-        
+        mockStrategy.addYield(1000 * 10 ** 6); // 1000 USDC yield
+
         // Fast forward and process
         vm.warp(block.timestamp + 7 days);
-        
+
         uint256 balanceBefore = mockUSDC.balanceOf(user);
         vm.prank(user);
         vault.processWithdrawal(requestId);
         uint256 balanceAfter = mockUSDC.balanceOf(user);
-        
+
         uint256 received = balanceAfter - balanceBefore;
-        
+
         // User should receive their share of yield generated during waiting period
         assertTrue(received >= DEPOSIT_AMOUNT, "Should receive at least original deposit");
     }
@@ -382,7 +385,7 @@ contract WithdrawalStressTestsTest is Test {
 
     function test_EdgeCase_ZeroShareWithdrawal() public {
         address user = users[0];
-        
+
         vm.expectRevert("Cannot withdraw 0 shares");
         vm.prank(user);
         vault.requestWithdrawal(0);
@@ -391,7 +394,7 @@ contract WithdrawalStressTestsTest is Test {
     function test_EdgeCase_ExcessiveShareWithdrawal() public {
         address user = users[0];
         uint256 userShares = vault.userShares(user);
-        
+
         vm.expectRevert("Insufficient shares");
         vm.prank(user);
         vault.requestWithdrawal(userShares + 1);
@@ -400,12 +403,12 @@ contract WithdrawalStressTestsTest is Test {
     function test_EdgeCase_DoubleProcessing() public {
         address user = users[0];
         uint256 userShares = vault.userShares(user);
-        
+
         vm.prank(user);
         uint256 requestId = vault.requestWithdrawal(userShares);
 
         vm.warp(block.timestamp + 8 days);
-        
+
         // Process once
         vm.prank(user);
         vault.processWithdrawal(requestId);
@@ -423,7 +426,7 @@ contract WithdrawalStressTestsTest is Test {
         for (uint256 i = 0; i < NUM_USERS / 2; i++) {
             address user = users[i];
             uint256 userShares = vault.userShares(user);
-            
+
             vm.prank(user);
             vault.instantWithdrawal(userShares);
         }
@@ -431,16 +434,16 @@ contract WithdrawalStressTestsTest is Test {
         // System should still function for remaining users
         address remainingUser = users[NUM_USERS - 1];
         uint256 remainingShares = vault.userShares(remainingUser);
-        
+
         assertTrue(remainingShares > 0, "Remaining users should still have shares");
-        
+
         // New deposits should still work
         mockUSDC.mint(remainingUser, DEPOSIT_AMOUNT);
         vm.startPrank(remainingUser);
         mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
         vault.deposit(DEPOSIT_AMOUNT);
         vm.stopPrank();
-        
+
         assertTrue(vault.userShares(remainingUser) > remainingShares, "New deposits should work");
     }
 }

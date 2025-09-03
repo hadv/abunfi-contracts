@@ -23,7 +23,7 @@ contract GasOptimizationStressTestsTest is Test {
     address public owner;
     address[] public users;
     uint256 constant NUM_USERS = 100;
-    uint256 constant DEPOSIT_AMOUNT = 1000 * 10**6; // 1k USDC
+    uint256 constant DEPOSIT_AMOUNT = 1000 * 10 ** 6; // 1k USDC
 
     // Gas limit thresholds for production readiness
     uint256 constant MAX_DEPOSIT_GAS = 300_000;
@@ -64,10 +64,10 @@ contract GasOptimizationStressTestsTest is Test {
 
     function test_GasOptimization_SingleDeposit() public {
         address user = users[0];
-        
+
         vm.startPrank(user);
         mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        
+
         uint256 gasStart = gasleft();
         vault.deposit(DEPOSIT_AMOUNT);
         uint256 gasUsed = gasStart - gasleft();
@@ -80,28 +80,27 @@ contract GasOptimizationStressTestsTest is Test {
     function test_GasOptimization_MultipleDeposits() public {
         // Test gas usage doesn't increase significantly with multiple deposits
         address user = users[0];
-        
+
         vm.startPrank(user);
         mockUSDC.approve(address(vault), DEPOSIT_AMOUNT * 5);
-        
+
         // First deposit
         uint256 gasStart = gasleft();
         vault.deposit(DEPOSIT_AMOUNT);
         uint256 firstDepositGas = gasStart - gasleft();
-        
+
         // Second deposit (should be similar gas usage)
         gasStart = gasleft();
         vault.deposit(DEPOSIT_AMOUNT);
         uint256 secondDepositGas = gasStart - gasleft();
-        
+
         vm.stopPrank();
 
         emit GasUsageRecorded("First Deposit", firstDepositGas, firstDepositGas <= MAX_DEPOSIT_GAS);
         emit GasUsageRecorded("Second Deposit", secondDepositGas, secondDepositGas <= MAX_DEPOSIT_GAS);
 
         // Second deposit should not use significantly more gas
-        uint256 gasIncrease = secondDepositGas > firstDepositGas ? 
-            secondDepositGas - firstDepositGas : 0;
+        uint256 gasIncrease = secondDepositGas > firstDepositGas ? secondDepositGas - firstDepositGas : 0;
         assertTrue(gasIncrease <= 50_000, "Gas usage should not increase significantly");
     }
 
@@ -118,7 +117,7 @@ contract GasOptimizationStressTestsTest is Test {
         address newUser = users[51];
         vm.startPrank(newUser);
         mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        
+
         uint256 gasStart = gasleft();
         vault.deposit(DEPOSIT_AMOUNT);
         uint256 gasUsed = gasStart - gasleft();
@@ -132,14 +131,14 @@ contract GasOptimizationStressTestsTest is Test {
 
     function test_GasOptimization_SingleWithdrawal() public {
         address user = users[0];
-        
+
         // Setup deposit first
         vm.startPrank(user);
         mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
         vault.deposit(DEPOSIT_AMOUNT);
-        
+
         uint256 userShares = vault.userShares(user);
-        
+
         uint256 gasStart = gasleft();
         vault.withdraw(userShares);
         uint256 gasUsed = gasStart - gasleft();
@@ -151,22 +150,22 @@ contract GasOptimizationStressTestsTest is Test {
 
     function test_GasOptimization_WithdrawalRequestProcessing() public {
         address user = users[0];
-        
+
         // Setup deposit
         vm.startPrank(user);
         mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
         vault.deposit(DEPOSIT_AMOUNT);
-        
+
         uint256 userShares = vault.userShares(user);
-        
+
         // Request withdrawal
         uint256 gasStart = gasleft();
         uint256 requestId = vault.requestWithdrawal(userShares);
         uint256 requestGas = gasStart - gasleft();
-        
+
         // Fast forward past withdrawal window
         vm.warp(block.timestamp + 8 days);
-        
+
         // Process withdrawal
         gasStart = gasleft();
         vault.processWithdrawal(requestId);
@@ -192,7 +191,7 @@ contract GasOptimizationStressTestsTest is Test {
         }
 
         // Add yield to strategy
-        mockStrategy.addYield(1000 * 10**6); // 1000 USDC yield
+        mockStrategy.addYield(1000 * 10 ** 6); // 1000 USDC yield
 
         // Test harvest gas usage
         uint256 gasStart = gasleft();
@@ -208,7 +207,7 @@ contract GasOptimizationStressTestsTest is Test {
         // Deploy additional strategies
         MockStrategy strategy2 = new MockStrategy(address(mockUSDC), "Strategy 2", 400); // 4% APY
         MockStrategy strategy3 = new MockStrategy(address(mockUSDC), "Strategy 3", 600); // 6% APY
-        
+
         vault.addStrategy(address(strategy2));
         vault.addStrategy(address(strategy3));
 
@@ -238,24 +237,24 @@ contract GasOptimizationStressTestsTest is Test {
         for (uint256 i = 0; i < numBatchUsers; i++) {
             vm.startPrank(users[i]);
             mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-            
+
             uint256 gasStart = gasleft();
             vault.deposit(DEPOSIT_AMOUNT);
             uint256 gasUsed = gasStart - gasleft();
             totalGas += gasUsed;
-            
+
             vm.stopPrank();
         }
 
         uint256 avgGasPerDeposit = totalGas / numBatchUsers;
         emit GasUsageRecorded("Average Batch Deposit", avgGasPerDeposit, avgGasPerDeposit <= MAX_DEPOSIT_GAS);
-        
+
         assertTrue(avgGasPerDeposit <= MAX_DEPOSIT_GAS, "Batch deposits should maintain efficiency");
     }
 
     function test_GasOptimization_BatchWithdrawals() public {
         uint256 numBatchUsers = 10;
-        
+
         // Setup deposits first
         for (uint256 i = 0; i < numBatchUsers; i++) {
             vm.startPrank(users[i]);
@@ -269,18 +268,18 @@ contract GasOptimizationStressTestsTest is Test {
         for (uint256 i = 0; i < numBatchUsers; i++) {
             vm.startPrank(users[i]);
             uint256 userShares = vault.userShares(users[i]);
-            
+
             uint256 gasStart = gasleft();
             vault.withdraw(userShares);
             uint256 gasUsed = gasStart - gasleft();
             totalGas += gasUsed;
-            
+
             vm.stopPrank();
         }
 
         uint256 avgGasPerWithdrawal = totalGas / numBatchUsers;
         emit GasUsageRecorded("Average Batch Withdrawal", avgGasPerWithdrawal, avgGasPerWithdrawal <= MAX_WITHDRAW_GAS);
-        
+
         assertTrue(avgGasPerWithdrawal <= MAX_WITHDRAW_GAS, "Batch withdrawals should maintain efficiency");
     }
 
@@ -294,49 +293,58 @@ contract GasOptimizationStressTestsTest is Test {
         // High volume deposit/withdraw cycles
         for (uint256 i = 0; i < numOperations; i++) {
             address user = users[i % NUM_USERS];
-            
+
             vm.startPrank(user);
             mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-            
+
             // Deposit
             uint256 gasStart = gasleft();
             vault.deposit(DEPOSIT_AMOUNT);
             uint256 depositGas = gasStart - gasleft();
-            
+
             // Immediate withdrawal
             uint256 userShares = vault.userShares(user);
             gasStart = gasleft();
             vault.withdraw(userShares);
             uint256 withdrawGas = gasStart - gasleft();
-            
+
             vm.stopPrank();
 
             uint256 operationGas = depositGas + withdrawGas;
             totalGas += operationGas;
-            
+
             if (operationGas > maxGasPerOperation) {
                 maxGasPerOperation = operationGas;
             }
         }
 
         uint256 avgGasPerOperation = totalGas / numOperations;
-        
-        emit GasUsageRecorded("High Volume Avg Operation", avgGasPerOperation, avgGasPerOperation <= (MAX_DEPOSIT_GAS + MAX_WITHDRAW_GAS));
-        emit GasUsageRecorded("High Volume Max Operation", maxGasPerOperation, maxGasPerOperation <= (MAX_DEPOSIT_GAS + MAX_WITHDRAW_GAS));
 
-        assertTrue(avgGasPerOperation <= (MAX_DEPOSIT_GAS + MAX_WITHDRAW_GAS), "High volume operations should remain efficient");
-        assertTrue(maxGasPerOperation <= (MAX_DEPOSIT_GAS + MAX_WITHDRAW_GAS) * 12 / 10, "Max gas should not exceed 120% of expected");
+        emit GasUsageRecorded(
+            "High Volume Avg Operation", avgGasPerOperation, avgGasPerOperation <= (MAX_DEPOSIT_GAS + MAX_WITHDRAW_GAS)
+        );
+        emit GasUsageRecorded(
+            "High Volume Max Operation", maxGasPerOperation, maxGasPerOperation <= (MAX_DEPOSIT_GAS + MAX_WITHDRAW_GAS)
+        );
+
+        assertTrue(
+            avgGasPerOperation <= (MAX_DEPOSIT_GAS + MAX_WITHDRAW_GAS), "High volume operations should remain efficient"
+        );
+        assertTrue(
+            maxGasPerOperation <= (MAX_DEPOSIT_GAS + MAX_WITHDRAW_GAS) * 12 / 10,
+            "Max gas should not exceed 120% of expected"
+        );
     }
 
     function test_StressTest_LargeDepositAmounts() public {
-        uint256 largeAmount = 1_000_000 * 10**6; // 1M USDC
+        uint256 largeAmount = 1_000_000 * 10 ** 6; // 1M USDC
         address user = users[0];
-        
+
         mockUSDC.mint(user, largeAmount);
-        
+
         vm.startPrank(user);
         mockUSDC.approve(address(vault), largeAmount);
-        
+
         uint256 gasStart = gasleft();
         vault.deposit(largeAmount);
         uint256 gasUsed = gasStart - gasleft();
@@ -351,7 +359,7 @@ contract GasOptimizationStressTestsTest is Test {
     function test_MemoryOptimization_LargeUserBase() public {
         // Test system performance with large user base
         uint256 numUsers = 100;
-        
+
         // Setup many users
         for (uint256 i = 0; i < numUsers; i++) {
             vm.startPrank(users[i]);
@@ -363,10 +371,10 @@ contract GasOptimizationStressTestsTest is Test {
         // Test operations still efficient with large user base
         address newUser = makeAddr("newUser");
         mockUSDC.mint(newUser, DEPOSIT_AMOUNT);
-        
+
         vm.startPrank(newUser);
         mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        
+
         uint256 gasStart = gasleft();
         vault.deposit(DEPOSIT_AMOUNT);
         uint256 gasUsed = gasStart - gasleft();
@@ -381,10 +389,10 @@ contract GasOptimizationStressTestsTest is Test {
     function test_GasOptimization_MinimumDeposit() public {
         address user = users[0];
         uint256 minDeposit = vault.MINIMUM_DEPOSIT();
-        
+
         vm.startPrank(user);
         mockUSDC.approve(address(vault), minDeposit);
-        
+
         uint256 gasStart = gasleft();
         vault.deposit(minDeposit);
         uint256 gasUsed = gasStart - gasleft();
@@ -396,14 +404,14 @@ contract GasOptimizationStressTestsTest is Test {
 
     function test_GasOptimization_PartialWithdrawal() public {
         address user = users[0];
-        
+
         vm.startPrank(user);
         mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
         vault.deposit(DEPOSIT_AMOUNT);
-        
+
         uint256 userShares = vault.userShares(user);
         uint256 partialShares = userShares / 2;
-        
+
         uint256 gasStart = gasleft();
         vault.withdraw(partialShares);
         uint256 gasUsed = gasStart - gasleft();

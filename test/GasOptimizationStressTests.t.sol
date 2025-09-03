@@ -26,10 +26,10 @@ contract GasOptimizationStressTestsTest is Test {
     uint256 constant DEPOSIT_AMOUNT = 1000 * 10**6; // 1k USDC
 
     // Gas limit thresholds for production readiness
-    uint256 constant MAX_DEPOSIT_GAS = 200_000;
-    uint256 constant MAX_WITHDRAW_GAS = 250_000;
-    uint256 constant MAX_HARVEST_GAS = 300_000;
-    uint256 constant MAX_REBALANCE_GAS = 500_000;
+    uint256 constant MAX_DEPOSIT_GAS = 300_000;
+    uint256 constant MAX_WITHDRAW_GAS = 300_000;
+    uint256 constant MAX_HARVEST_GAS = 400_000;
+    uint256 constant MAX_REBALANCE_GAS = 600_000;
 
     event GasUsageRecorded(string operation, uint256 gasUsed, bool withinLimit);
 

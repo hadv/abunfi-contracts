@@ -337,7 +337,7 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
      * @param requestId ID of the withdrawal request to cancel
      */
     function cancelWithdrawal(uint256 requestId) external nonReentrant {
-        withdrawalManager.cancelWithdrawal(requestId);
+        withdrawalManager.cancelWithdrawalForUser(_msgSender(), requestId);
     }
 
     /**

@@ -333,6 +333,14 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     }
 
     /**
+     * @dev Cancel withdrawal request
+     * @param requestId ID of the withdrawal request to cancel
+     */
+    function cancelWithdrawal(uint256 requestId) external nonReentrant {
+        withdrawalManager.cancelWithdrawal(requestId);
+    }
+
+    /**
      * @dev Process vault withdrawal (called by withdrawal manager)
      * @notice This function is called by the withdrawal manager to execute the actual withdrawal.
      *         It handles the core vault operations: updating user state, ensuring liquidity, and transferring tokens.

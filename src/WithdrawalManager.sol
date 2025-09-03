@@ -339,6 +339,26 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @dev Cancel withdrawal request for user (called by vault)
+     * @param user User address
+     * @param requestId ID of the withdrawal request to cancel
+     */
+    function cancelWithdrawalForUser(address user, uint256 requestId) external nonReentrant {
+        require(msg.sender == vault, "Only vault can call");
+        require(requestId < userWithdrawalRequests[user].length, "Invalid request ID");
+
+        WithdrawalRequest storage request = userWithdrawalRequests[user][requestId];
+        require(!request.isProcessed, "Request already processed");
+        require(!request.isCancelled, "Request already cancelled");
+
+        // Mark as cancelled
+        request.isCancelled = true;
+        pendingWithdrawalShares[user] -= request.shares;
+
+        emit WithdrawalCancelled(user, requestId);
+    }
+
+    /**
      * @dev Update accrued interest for user
      * @param user User address
      */

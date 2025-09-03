@@ -74,6 +74,7 @@ contract MockAavePool {
     function withdraw(address _asset, uint256 _amount, address _to) external returns (uint256) {
         require(_amount > 0, "Amount must be positive");
         require(balances[msg.sender] >= _amount, "Insufficient balance");
+        require(!liquidityCrisis, "Insufficient liquidity");
 
         // Update balance
         balances[msg.sender] -= _amount;
@@ -141,5 +142,12 @@ contract MockAavePool {
 
     function getBalance(address account) external view returns (uint256) {
         return balances[account];
+    }
+
+    // Additional test helper for crisis simulation
+    bool public liquidityCrisis = false;
+
+    function setLiquidityCrisis(bool _crisis) external {
+        liquidityCrisis = _crisis;
     }
 }

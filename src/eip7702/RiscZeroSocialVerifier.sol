@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title RiscZeroSocialVerifier
@@ -12,6 +13,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  */
 contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
     using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
 
     // Events
     event ProofVerified(

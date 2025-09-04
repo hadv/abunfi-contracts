@@ -45,7 +45,7 @@ contract AbunfiVaultWithGaslessTest is Test {
 
         // Deploy EIP-7702 infrastructure
         smartAccountImpl = new AbunfiSmartAccount();
-        paymaster = new EIP7702Paymaster();
+        paymaster = new EIP7702Paymaster(address(0));
         bundler = new EIP7702Bundler();
 
         // Configure EIP-7702 system
@@ -145,6 +145,8 @@ contract AbunfiVaultWithGaslessTest is Test {
             perTxGasLimit: 0.0005 ether,
             dailyTxLimit: 1,
             requiresWhitelist: false,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
         paymaster.setAccountPolicy(user1, restrictivePolicy);
@@ -188,6 +190,8 @@ contract AbunfiVaultWithGaslessTest is Test {
             perTxGasLimit: 0.1 ether,
             dailyTxLimit: 100,
             requiresWhitelist: true, // Requires whitelist
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
         paymaster.setAccountPolicy(user1, whitelistPolicy);
@@ -246,6 +250,8 @@ contract AbunfiVaultWithGaslessTest is Test {
             perTxGasLimit: 0.1 ether,
             dailyTxLimit: 100,
             requiresWhitelist: false,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
         paymaster.setAccountPolicy(user1, premiumPolicy);
@@ -256,6 +262,8 @@ contract AbunfiVaultWithGaslessTest is Test {
             perTxGasLimit: 0.01 ether,
             dailyTxLimit: 10,
             requiresWhitelist: false,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
         paymaster.setAccountPolicy(user2, basicPolicy);

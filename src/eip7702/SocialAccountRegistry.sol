@@ -17,15 +17,10 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
 
     // Events
     event SocialAccountLinked(
-        bytes32 indexed socialAccountHash,
-        address indexed walletAddress,
-        SocialPlatform platform,
-        uint256 timestamp
+        bytes32 indexed socialAccountHash, address indexed walletAddress, SocialPlatform platform, uint256 timestamp
     );
     event SocialAccountUnlinked(
-        bytes32 indexed socialAccountHash,
-        address indexed walletAddress,
-        SocialPlatform platform
+        bytes32 indexed socialAccountHash, address indexed walletAddress, SocialPlatform platform
     );
     event VerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
     event PlatformConfigUpdated(SocialPlatform platform, PlatformConfig config);
@@ -71,13 +66,13 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
     mapping(bytes32 => SocialAccount) public socialAccounts;
     mapping(address => bytes32[]) public walletToSocialAccounts;
     mapping(SocialPlatform => PlatformConfig) public platformConfigs;
-    
+
     // RISC Zero verifier contract address
     address public riscZeroVerifier;
-    
+
     // Maximum social accounts per wallet
     uint256 public maxAccountsPerWallet = 5;
-    
+
     // Verification validity period
     uint256 public verificationValidityPeriod = 30 days;
 
@@ -101,31 +96,28 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
      * @dev Link a social account to a wallet address using RISC Zero proof
      * @param proof The verification proof from RISC Zero guest program
      */
-    function linkSocialAccount(VerificationProof calldata proof) 
-        external 
-        nonReentrant 
-        onlyValidPlatform(proof.platform) 
+    function linkSocialAccount(VerificationProof calldata proof)
+        external
+        nonReentrant
+        onlyValidPlatform(proof.platform)
     {
         // Verify the proof signature from RISC Zero verifier
         require(_verifyRiscZeroProof(proof), "Invalid RISC Zero proof");
-        
+
         // Check if social account is already linked
-        require(
-            socialAccounts[proof.socialAccountHash].walletAddress == address(0),
-            "Social account already linked"
-        );
-        
+        require(socialAccounts[proof.socialAccountHash].walletAddress == address(0), "Social account already linked");
+
         // Check platform-specific requirements
         PlatformConfig memory config = platformConfigs[proof.platform];
         require(proof.accountAge >= config.minimumAccountAge, "Account too young");
         require(proof.followerCount >= config.minimumFollowers, "Insufficient followers");
-        
+
         // Check wallet doesn't exceed maximum accounts
         require(
             walletToSocialAccounts[proof.walletAddress].length < maxAccountsPerWallet,
             "Maximum accounts per wallet exceeded"
         );
-        
+
         // Link the account
         socialAccounts[proof.socialAccountHash] = SocialAccount({
             walletAddress: proof.walletAddress,
@@ -134,15 +126,10 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
             lastVerified: block.timestamp,
             isActive: true
         });
-        
+
         walletToSocialAccounts[proof.walletAddress].push(proof.socialAccountHash);
-        
-        emit SocialAccountLinked(
-            proof.socialAccountHash,
-            proof.walletAddress,
-            proof.platform,
-            block.timestamp
-        );
+
+        emit SocialAccountLinked(proof.socialAccountHash, proof.walletAddress, proof.platform, block.timestamp);
     }
 
     /**
@@ -153,42 +140,35 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
         SocialAccount storage account = socialAccounts[socialAccountHash];
         require(account.walletAddress == msg.sender, "Not account owner");
         require(account.isActive, "Account not active");
-        
+
         // Remove from wallet's social accounts array
         _removeSocialAccountFromWallet(account.walletAddress, socialAccountHash);
-        
+
         // Deactivate the account
         account.isActive = false;
-        
-        emit SocialAccountUnlinked(
-            socialAccountHash,
-            account.walletAddress,
-            account.platform
-        );
+
+        emit SocialAccountUnlinked(socialAccountHash, account.walletAddress, account.platform);
     }
 
     /**
      * @dev Re-verify a social account with updated proof
      * @param proof Updated verification proof
      */
-    function reverifyAccount(VerificationProof calldata proof) 
-        external 
-        nonReentrant 
-        onlyValidPlatform(proof.platform) 
+    function reverifyAccount(VerificationProof calldata proof)
+        external
+        nonReentrant
+        onlyValidPlatform(proof.platform)
     {
         require(_verifyRiscZeroProof(proof), "Invalid RISC Zero proof");
-        
+
         SocialAccount storage account = socialAccounts[proof.socialAccountHash];
         require(account.walletAddress == proof.walletAddress, "Wallet mismatch");
         require(account.isActive, "Account not active");
-        
+
         // Check cooldown period
         PlatformConfig memory config = platformConfigs[proof.platform];
-        require(
-            block.timestamp >= account.lastVerified + config.verificationCooldown,
-            "Verification cooldown active"
-        );
-        
+        require(block.timestamp >= account.lastVerified + config.verificationCooldown, "Verification cooldown active");
+
         // Update verification timestamp
         account.lastVerified = block.timestamp;
     }
@@ -223,11 +203,7 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
      * @param walletAddress The wallet address
      * @return socialAccountHashes Array of linked social account hashes
      */
-    function getLinkedAccounts(address walletAddress) 
-        external 
-        view 
-        returns (bytes32[] memory socialAccountHashes) 
-    {
+    function getLinkedAccounts(address walletAddress) external view returns (bytes32[] memory socialAccountHashes) {
         return walletToSocialAccounts[walletAddress];
     }
 
@@ -237,10 +213,10 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
      * @return isLinked Whether the account is linked
      * @return linkedWallet The wallet address it's linked to
      */
-    function isSocialAccountLinked(bytes32 socialAccountHash) 
-        external 
-        view 
-        returns (bool isLinked, address linkedWallet) 
+    function isSocialAccountLinked(bytes32 socialAccountHash)
+        external
+        view
+        returns (bool isLinked, address linkedWallet)
     {
         SocialAccount memory account = socialAccounts[socialAccountHash];
         isLinked = account.isActive && account.walletAddress != address(0);
@@ -254,16 +230,18 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
      */
     function _verifyRiscZeroProof(VerificationProof calldata proof) internal view returns (bool) {
         // Create the message hash from proof data
-        bytes32 messageHash = keccak256(abi.encodePacked(
-            proof.socialAccountHash,
-            proof.walletAddress,
-            uint256(proof.platform),
-            proof.accountAge,
-            proof.followerCount,
-            proof.timestamp,
-            proof.proofHash
-        ));
-        
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                proof.socialAccountHash,
+                proof.walletAddress,
+                uint256(proof.platform),
+                proof.accountAge,
+                proof.followerCount,
+                proof.timestamp,
+                proof.proofHash
+            )
+        );
+
         // Verify signature from RISC Zero verifier
         address signer = messageHash.toEthSignedMessageHash().recover(proof.signature);
         return signer == riscZeroVerifier;
@@ -302,7 +280,7 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
             verificationCooldown: 7 days,
             requiresAdditionalVerification: false
         });
-        
+
         // Discord configuration
         platformConfigs[SocialPlatform.DISCORD] = PlatformConfig({
             isEnabled: true,
@@ -311,7 +289,7 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
             verificationCooldown: 7 days,
             requiresAdditionalVerification: false
         });
-        
+
         // GitHub configuration
         platformConfigs[SocialPlatform.GITHUB] = PlatformConfig({
             isEnabled: true,
@@ -336,10 +314,7 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
     /**
      * @dev Update platform configuration
      */
-    function setPlatformConfig(SocialPlatform platform, PlatformConfig calldata config) 
-        external 
-        onlyOwner 
-    {
+    function setPlatformConfig(SocialPlatform platform, PlatformConfig calldata config) external onlyOwner {
         platformConfigs[platform] = config;
         emit PlatformConfigUpdated(platform, config);
     }

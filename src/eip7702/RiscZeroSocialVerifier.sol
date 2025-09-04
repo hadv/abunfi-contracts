@@ -16,12 +16,7 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
     using MessageHashUtils for bytes32;
 
     // Events
-    event ProofVerified(
-        bytes32 indexed proofHash,
-        address indexed requester,
-        SocialPlatform platform,
-        bool success
-    );
+    event ProofVerified(bytes32 indexed proofHash, address indexed requester, SocialPlatform platform, bool success);
     event VerifierKeyUpdated(address indexed oldKey, address indexed newKey);
     event PlatformEndpointUpdated(SocialPlatform platform, string endpoint);
 
@@ -59,12 +54,12 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
     mapping(bytes32 => VerificationRequest) public verificationRequests;
     mapping(SocialPlatform => string) public platformEndpoints;
     mapping(address => bool) public authorizedVerifiers;
-    
+
     // RISC Zero specific
     address public riscZeroVerifierKey;
     uint256 public proofValidityPeriod = 1 hours;
     uint256 public requestTimeout = 30 minutes;
-    
+
     // Social Registry contract
     address public socialRegistry;
 
@@ -77,10 +72,7 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
     modifier onlyValidRequest(bytes32 requestId) {
         require(verificationRequests[requestId].requester != address(0), "Invalid request");
         require(!verificationRequests[requestId].isCompleted, "Request already completed");
-        require(
-            block.timestamp <= verificationRequests[requestId].requestedAt + requestTimeout,
-            "Request timed out"
-        );
+        require(block.timestamp <= verificationRequests[requestId].requestedAt + requestTimeout, "Request timed out");
         _;
     }
 
@@ -88,7 +80,7 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
         riscZeroVerifierKey = _riscZeroVerifierKey;
         socialRegistry = _socialRegistry;
         _initializePlatformEndpoints();
-        
+
         // Add deployer as authorized verifier initially
         authorizedVerifiers[msg.sender] = true;
     }
@@ -100,23 +92,17 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
      * @param walletAddress The wallet address to link to
      * @return requestId The unique request identifier
      */
-    function requestVerification(
-        SocialPlatform platform,
-        string calldata oauthToken,
-        address walletAddress
-    ) external nonReentrant returns (bytes32 requestId) {
+    function requestVerification(SocialPlatform platform, string calldata oauthToken, address walletAddress)
+        external
+        nonReentrant
+        returns (bytes32 requestId)
+    {
         require(bytes(platformEndpoints[platform]).length > 0, "Platform not supported");
         require(walletAddress != address(0), "Invalid wallet address");
-        
+
         // Generate unique request ID
-        requestId = keccak256(abi.encodePacked(
-            msg.sender,
-            platform,
-            walletAddress,
-            block.timestamp,
-            block.number
-        ));
-        
+        requestId = keccak256(abi.encodePacked(msg.sender, platform, walletAddress, block.timestamp, block.number));
+
         // Store verification request
         verificationRequests[requestId] = VerificationRequest({
             requester: msg.sender,
@@ -135,14 +121,14 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
             isVerified: false,
             isCompleted: false
         });
-        
+
         // Note: In a real implementation, this would trigger the RISC Zero guest program
         // The guest program would:
         // 1. Use the OAuth token to fetch user data from the social platform
         // 2. Verify the token validity and extract account information
         // 3. Generate a ZK proof of the verification
         // 4. Submit the proof back to this contract via submitProof()
-        
+
         return requestId;
     }
 
@@ -160,36 +146,33 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
         bytes calldata signature
     ) external onlyAuthorizedVerifier onlyValidRequest(requestId) {
         VerificationRequest storage request = verificationRequests[requestId];
-        
+
         // Verify the proof signature
-        bytes32 messageHash = keccak256(abi.encodePacked(
-            requestId,
-            proofData.socialAccountHash,
-            proofData.walletAddress,
-            uint256(proofData.platform),
-            proofData.accountAge,
-            proofData.followerCount,
-            proofData.timestamp
-        ));
-        
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                requestId,
+                proofData.socialAccountHash,
+                proofData.walletAddress,
+                uint256(proofData.platform),
+                proofData.accountAge,
+                proofData.followerCount,
+                proofData.timestamp
+            )
+        );
+
         address signer = messageHash.toEthSignedMessageHash().recover(signature);
         require(signer == riscZeroVerifierKey, "Invalid proof signature");
-        
+
         // Verify RISC Zero proof (simplified - in real implementation would call RISC Zero verifier)
         require(_verifyRiscZeroProof(riscZeroProof, proofData), "Invalid RISC Zero proof");
-        
+
         // Update request with verified data
         request.data = proofData;
         request.proofHash = keccak256(riscZeroProof);
         request.isVerified = true;
         request.isCompleted = true;
-        
-        emit ProofVerified(
-            request.proofHash,
-            request.requester,
-            proofData.platform,
-            true
-        );
+
+        emit ProofVerified(request.proofHash, request.requester, proofData.platform, true);
     }
 
     /**
@@ -199,14 +182,10 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
      * @return isVerified Whether verification was successful
      * @return proofData The verified social account data
      */
-    function getVerificationResult(bytes32 requestId) 
-        external 
-        view 
-        returns (
-            bool isCompleted,
-            bool isVerified,
-            ProofData memory proofData
-        ) 
+    function getVerificationResult(bytes32 requestId)
+        external
+        view
+        returns (bool isCompleted, bool isVerified, ProofData memory proofData)
     {
         VerificationRequest memory request = verificationRequests[requestId];
         return (request.isCompleted, request.isVerified, request.data);
@@ -217,25 +196,23 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
      * @param requestId The completed verification request ID
      * @return proof The formatted proof for social registry
      */
-    function createRegistryProof(bytes32 requestId) 
-        external 
-        view 
-        returns (bytes memory proof) 
-    {
+    function createRegistryProof(bytes32 requestId) external view returns (bytes memory proof) {
         VerificationRequest memory request = verificationRequests[requestId];
         require(request.isCompleted && request.isVerified, "Verification not completed");
-        
+
         // Create signature for the proof
-        bytes32 messageHash = keccak256(abi.encodePacked(
-            request.data.socialAccountHash,
-            request.data.walletAddress,
-            uint256(request.data.platform),
-            request.data.accountAge,
-            request.data.followerCount,
-            request.data.timestamp,
-            request.proofHash
-        ));
-        
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                request.data.socialAccountHash,
+                request.data.walletAddress,
+                uint256(request.data.platform),
+                request.data.accountAge,
+                request.data.followerCount,
+                request.data.timestamp,
+                request.proofHash
+            )
+        );
+
         // In a real implementation, this would be signed by the verifier
         // For now, we'll return the unsigned proof data
         proof = abi.encode(
@@ -256,15 +233,12 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
      * @dev Verify RISC Zero proof (simplified implementation)
      * In a real implementation, this would call the actual RISC Zero verifier
      */
-    function _verifyRiscZeroProof(
-        bytes calldata proof,
-        ProofData calldata data
-    ) internal pure returns (bool) {
+    function _verifyRiscZeroProof(bytes calldata proof, ProofData calldata data) internal pure returns (bool) {
         // Simplified verification - in real implementation would:
         // 1. Call RISC Zero verifier contract
         // 2. Verify the proof against the expected program hash
         // 3. Verify the public outputs match the provided data
-        
+
         // For now, just check that proof is not empty
         return proof.length > 0 && data.socialAccountHash != bytes32(0);
     }
@@ -301,10 +275,7 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
     /**
      * @dev Update platform endpoint
      */
-    function setPlatformEndpoint(SocialPlatform platform, string calldata endpoint) 
-        external 
-        onlyOwner 
-    {
+    function setPlatformEndpoint(SocialPlatform platform, string calldata endpoint) external onlyOwner {
         platformEndpoints[platform] = endpoint;
         emit PlatformEndpointUpdated(platform, endpoint);
     }
@@ -333,21 +304,13 @@ contract RiscZeroSocialVerifier is Ownable, ReentrancyGuard {
     /**
      * @dev Emergency function to complete failed verification
      */
-    function emergencyCompleteVerification(
-        bytes32 requestId,
-        bool success
-    ) external onlyOwner {
+    function emergencyCompleteVerification(bytes32 requestId, bool success) external onlyOwner {
         VerificationRequest storage request = verificationRequests[requestId];
         require(request.requester != address(0), "Invalid request");
-        
+
         request.isCompleted = true;
         request.isVerified = success;
-        
-        emit ProofVerified(
-            request.proofHash,
-            request.requester,
-            request.data.platform,
-            success
-        );
+
+        emit ProofVerified(request.proofHash, request.requester, request.data.platform, success);
     }
 }

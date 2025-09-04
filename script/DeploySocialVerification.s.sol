@@ -15,7 +15,7 @@ contract DeploySocialVerification is Script {
     // Configuration
     address public constant RISC_ZERO_VERIFIER_KEY = 0x1234567890123456789012345678901234567890; // Replace with actual key
     uint256 public constant INITIAL_PAYMASTER_FUNDING = 2 ether;
-    
+
     // Deployed contract addresses
     SocialAccountRegistry public socialRegistry;
     RiscZeroSocialVerifier public riscZeroVerifier;
@@ -24,56 +24,54 @@ contract DeploySocialVerification is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         console.log("=== RISC Zero Social Verification Deployment ===");
         console.log("Deployer:", deployer);
         console.log("Chain ID:", block.chainid);
         console.log("Balance:", deployer.balance / 1e18, "ETH");
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         // Step 1: Deploy Social Account Registry
         console.log("\n1. Deploying SocialAccountRegistry...");
         socialRegistry = new SocialAccountRegistry(RISC_ZERO_VERIFIER_KEY);
         console.log("SocialAccountRegistry deployed at:", address(socialRegistry));
-        
+
         // Step 2: Deploy RISC Zero Verifier
         console.log("\n2. Deploying RiscZeroSocialVerifier...");
-        riscZeroVerifier = new RiscZeroSocialVerifier(
-            RISC_ZERO_VERIFIER_KEY,
-            address(socialRegistry)
-        );
+        riscZeroVerifier = new RiscZeroSocialVerifier(RISC_ZERO_VERIFIER_KEY, address(socialRegistry));
         console.log("RiscZeroSocialVerifier deployed at:", address(riscZeroVerifier));
-        
+
         // Step 3: Deploy Enhanced Paymaster
         console.log("\n3. Deploying Enhanced EIP7702Paymaster...");
         paymaster = new EIP7702Paymaster(address(socialRegistry));
         console.log("EIP7702Paymaster deployed at:", address(paymaster));
-        
+
         // Step 4: Configure the system
         console.log("\n4. Configuring system...");
         _configureSystem();
-        
+
         // Step 5: Fund the paymaster
         console.log("\n5. Funding paymaster...");
         payable(address(paymaster)).transfer(INITIAL_PAYMASTER_FUNDING);
         console.log("Paymaster funded with:", INITIAL_PAYMASTER_FUNDING / 1e18, "ETH");
-        
+
         vm.stopBroadcast();
-        
+
         // Step 6: Display deployment summary
         _displayDeploymentSummary();
-        
+
         // Step 7: Verify contracts (if on testnet/mainnet)
-        if (block.chainid != 31337) { // Not local
+        if (block.chainid != 31337) {
+            // Not local
             _verifyContracts();
         }
     }
-    
+
     function _configureSystem() internal {
         // Configure Social Registry platform settings
         console.log("Configuring platform settings...");
-        
+
         // Twitter configuration
         SocialAccountRegistry.PlatformConfig memory twitterConfig = SocialAccountRegistry.PlatformConfig({
             isEnabled: true,
@@ -83,7 +81,7 @@ contract DeploySocialVerification is Script {
             requiresAdditionalVerification: false
         });
         socialRegistry.setPlatformConfig(SocialAccountRegistry.SocialPlatform.TWITTER, twitterConfig);
-        
+
         // Discord configuration
         SocialAccountRegistry.PlatformConfig memory discordConfig = SocialAccountRegistry.PlatformConfig({
             isEnabled: true,
@@ -93,7 +91,7 @@ contract DeploySocialVerification is Script {
             requiresAdditionalVerification: false
         });
         socialRegistry.setPlatformConfig(SocialAccountRegistry.SocialPlatform.DISCORD, discordConfig);
-        
+
         // GitHub configuration (stricter requirements)
         SocialAccountRegistry.PlatformConfig memory githubConfig = SocialAccountRegistry.PlatformConfig({
             isEnabled: true,
@@ -103,10 +101,10 @@ contract DeploySocialVerification is Script {
             requiresAdditionalVerification: true
         });
         socialRegistry.setPlatformConfig(SocialAccountRegistry.SocialPlatform.GITHUB, githubConfig);
-        
+
         // Configure Paymaster with social verification
         console.log("Configuring paymaster policies...");
-        
+
         // Basic policy (no social verification required)
         EIP7702Paymaster.SponsorshipPolicy memory basicPolicy = EIP7702Paymaster.SponsorshipPolicy({
             dailyGasLimit: 0.01 ether, // $25 at 2500 ETH
@@ -118,13 +116,13 @@ contract DeploySocialVerification is Script {
             isActive: true
         });
         paymaster.setGlobalPolicy(basicPolicy);
-        
+
         // Set RISC Zero verifier as authorized
         riscZeroVerifier.setAuthorizedVerifier(address(this), true);
-        
+
         console.log("System configuration completed");
     }
-    
+
     function _displayDeploymentSummary() internal view {
         console.log("\n=== DEPLOYMENT SUMMARY ===");
         console.log("Network: %s (Chain ID: %d)", _getNetworkName(), block.chainid);
@@ -148,54 +146,60 @@ contract DeploySocialVerification is Script {
         console.log("Documentation:");
         console.log("  - See docs/RISC_ZERO_SOCIAL_VERIFICATION.md");
     }
-    
+
     function _verifyContracts() internal {
         console.log("\n=== CONTRACT VERIFICATION ===");
         console.log("Verifying contracts on block explorer...");
-        
+
         // Note: In a real deployment, you would use forge verify-contract
         // or similar tools to verify the contracts on Etherscan
-        
+
         string[] memory verifyCommands = new string[](3);
-        
+
         // Social Registry verification
-        verifyCommands[0] = string(abi.encodePacked(
-            "forge verify-contract ",
-            vm.toString(address(socialRegistry)),
-            " src/eip7702/SocialAccountRegistry.sol:SocialAccountRegistry",
-            " --constructor-args $(cast abi-encode 'constructor(address)' ",
-            vm.toString(RISC_ZERO_VERIFIER_KEY),
-            ")"
-        ));
-        
+        verifyCommands[0] = string(
+            abi.encodePacked(
+                "forge verify-contract ",
+                vm.toString(address(socialRegistry)),
+                " src/eip7702/SocialAccountRegistry.sol:SocialAccountRegistry",
+                " --constructor-args $(cast abi-encode 'constructor(address)' ",
+                vm.toString(RISC_ZERO_VERIFIER_KEY),
+                ")"
+            )
+        );
+
         // RISC Zero Verifier verification
-        verifyCommands[1] = string(abi.encodePacked(
-            "forge verify-contract ",
-            vm.toString(address(riscZeroVerifier)),
-            " src/eip7702/RiscZeroSocialVerifier.sol:RiscZeroSocialVerifier",
-            " --constructor-args $(cast abi-encode 'constructor(address,address)' ",
-            vm.toString(RISC_ZERO_VERIFIER_KEY),
-            " ",
-            vm.toString(address(socialRegistry)),
-            ")"
-        ));
-        
+        verifyCommands[1] = string(
+            abi.encodePacked(
+                "forge verify-contract ",
+                vm.toString(address(riscZeroVerifier)),
+                " src/eip7702/RiscZeroSocialVerifier.sol:RiscZeroSocialVerifier",
+                " --constructor-args $(cast abi-encode 'constructor(address,address)' ",
+                vm.toString(RISC_ZERO_VERIFIER_KEY),
+                " ",
+                vm.toString(address(socialRegistry)),
+                ")"
+            )
+        );
+
         // Paymaster verification
-        verifyCommands[2] = string(abi.encodePacked(
-            "forge verify-contract ",
-            vm.toString(address(paymaster)),
-            " src/eip7702/EIP7702Paymaster.sol:EIP7702Paymaster",
-            " --constructor-args $(cast abi-encode 'constructor(address)' ",
-            vm.toString(address(socialRegistry)),
-            ")"
-        ));
-        
+        verifyCommands[2] = string(
+            abi.encodePacked(
+                "forge verify-contract ",
+                vm.toString(address(paymaster)),
+                " src/eip7702/EIP7702Paymaster.sol:EIP7702Paymaster",
+                " --constructor-args $(cast abi-encode 'constructor(address)' ",
+                vm.toString(address(socialRegistry)),
+                ")"
+            )
+        );
+
         console.log("Run these commands to verify contracts:");
-        for (uint i = 0; i < verifyCommands.length; i++) {
+        for (uint256 i = 0; i < verifyCommands.length; i++) {
             console.log(verifyCommands[i]);
         }
     }
-    
+
     function _getNetworkName() internal view returns (string memory) {
         if (block.chainid == 1) return "Ethereum Mainnet";
         if (block.chainid == 11155111) return "Sepolia Testnet";
@@ -206,13 +210,17 @@ contract DeploySocialVerification is Script {
         if (block.chainid == 31337) return "Local Network";
         return "Unknown Network";
     }
-    
+
     // Helper function to create example verification policies
-    function createExamplePolicies() external view returns (
-        EIP7702Paymaster.SponsorshipPolicy memory unverified,
-        EIP7702Paymaster.SponsorshipPolicy memory singleVerified,
-        EIP7702Paymaster.SponsorshipPolicy memory multiVerified
-    ) {
+    function createExamplePolicies()
+        external
+        view
+        returns (
+            EIP7702Paymaster.SponsorshipPolicy memory unverified,
+            EIP7702Paymaster.SponsorshipPolicy memory singleVerified,
+            EIP7702Paymaster.SponsorshipPolicy memory multiVerified
+        )
+    {
         // Policy for unverified users (very limited)
         unverified = EIP7702Paymaster.SponsorshipPolicy({
             dailyGasLimit: 0.005 ether, // $12.50 at 2500 ETH
@@ -223,7 +231,7 @@ contract DeploySocialVerification is Script {
             minimumVerificationLevel: 0,
             isActive: true
         });
-        
+
         // Policy for single platform verified users
         singleVerified = EIP7702Paymaster.SponsorshipPolicy({
             dailyGasLimit: 0.02 ether, // $50 at 2500 ETH
@@ -234,7 +242,7 @@ contract DeploySocialVerification is Script {
             minimumVerificationLevel: 1,
             isActive: true
         });
-        
+
         // Policy for multi-platform verified users (premium)
         multiVerified = EIP7702Paymaster.SponsorshipPolicy({
             dailyGasLimit: 0.1 ether, // $250 at 2500 ETH

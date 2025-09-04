@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title SocialAccountRegistry
@@ -12,6 +13,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  */
 contract SocialAccountRegistry is Ownable, ReentrancyGuard {
     using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
 
     // Events
     event SocialAccountLinked(
@@ -197,21 +199,21 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
      * @return hasValidVerification Whether the wallet has valid social verification
      * @return verificationLevel The level of verification (number of verified accounts)
      */
-    function getVerificationStatus(address walletAddress) 
-        external 
-        view 
-        returns (bool hasValidVerification, uint256 verificationLevel) 
+    function getVerificationStatus(address walletAddress)
+        external
+        view
+        returns (bool hasValidVerification, uint256 verificationLevel)
     {
-        bytes32[] memory socialAccounts = walletToSocialAccounts[walletAddress];
+        bytes32[] memory socialAccountHashes = walletToSocialAccounts[walletAddress];
         uint256 validAccounts = 0;
-        
-        for (uint256 i = 0; i < socialAccounts.length; i++) {
-            SocialAccount memory account = socialAccounts[socialAccounts[i]];
+
+        for (uint256 i = 0; i < socialAccountHashes.length; i++) {
+            SocialAccount memory account = socialAccounts[socialAccountHashes[i]];
             if (account.isActive && _isVerificationValid(account)) {
                 validAccounts++;
             }
         }
-        
+
         hasValidVerification = validAccounts > 0;
         verificationLevel = validAccounts;
     }

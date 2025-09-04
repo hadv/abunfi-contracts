@@ -1,0 +1,29 @@
+[package]
+name = "risc0-social-verifier"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = ["guest", "host"]
+
+[dependencies]
+risc0-zkvm = { version = "1.0", features = ["client"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+anyhow = "1.0"
+hex = "0.4"
+sha2 = "0.10"
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[[bin]]
+name = "host"
+path = "host/src/main.rs"
+
+[lib]
+name = "risc0_social_verifier"
+path = "src/lib.rs"

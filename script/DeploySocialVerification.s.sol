@@ -129,24 +129,24 @@ contract DeploySocialVerification is Script {
         console.log("\n=== DEPLOYMENT SUMMARY ===");
         console.log("Network: %s (Chain ID: %d)", _getNetworkName(), block.chainid);
         console.log("");
-        console.log("📋 Core Contracts:");
-        console.log("├── SocialAccountRegistry: %s", address(socialRegistry));
-        console.log("├── RiscZeroSocialVerifier: %s", address(riscZeroVerifier));
-        console.log("└── EIP7702Paymaster: %s", address(paymaster));
+        console.log("Core Contracts:");
+        console.log("  - SocialAccountRegistry: %s", address(socialRegistry));
+        console.log("  - RiscZeroSocialVerifier: %s", address(riscZeroVerifier));
+        console.log("  - EIP7702Paymaster: %s", address(paymaster));
         console.log("");
-        console.log("🔧 Configuration:");
-        console.log("├── RISC Zero Verifier Key: %s", RISC_ZERO_VERIFIER_KEY);
-        console.log("├── Paymaster Funding: %d ETH", INITIAL_PAYMASTER_FUNDING / 1e18);
-        console.log("└── Supported Platforms: Twitter, Discord, GitHub");
+        console.log("Configuration:");
+        console.log("  - RISC Zero Verifier Key: %s", RISC_ZERO_VERIFIER_KEY);
+        console.log("  - Paymaster Funding: %d ETH", INITIAL_PAYMASTER_FUNDING / 1e18);
+        console.log("  - Supported Platforms: Twitter, Discord, GitHub");
         console.log("");
-        console.log("🎯 Next Steps:");
+        console.log("Next Steps:");
         console.log("1. Setup RISC Zero verification service");
         console.log("2. Configure frontend integration");
         console.log("3. Test social verification flow");
         console.log("4. Monitor system performance");
         console.log("");
-        console.log("📚 Documentation:");
-        console.log("└── See docs/RISC_ZERO_SOCIAL_VERIFICATION.md");
+        console.log("Documentation:");
+        console.log("  - See docs/RISC_ZERO_SOCIAL_VERIFICATION.md");
     }
     
     function _verifyContracts() internal {

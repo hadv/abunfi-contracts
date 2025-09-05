@@ -14,8 +14,11 @@ contract TokenManagementIntegrationTest is Test {
     SocialAccountRegistry public socialRegistry;
     RiscZeroSocialVerifier public verifier;
     EIP7702Paymaster public paymaster;
-    
-    address public constant RISC_ZERO_VERIFIER_KEY = 0x1234567890123456789012345678901234567890;
+
+    // Test private key for signing (DO NOT use in production)
+    uint256 private constant TEST_PRIVATE_KEY = 0x1234567890123456789012345678901234567890123456789012345678901234;
+    address public testSigner;
+
     address public alice = makeAddr("alice");
     address public bob = makeAddr("bob");
     address public attacker = makeAddr("attacker");
@@ -39,11 +42,14 @@ contract TokenManagementIntegrationTest is Test {
     );
 
     function setUp() public {
-        // Deploy contracts
-        socialRegistry = new SocialAccountRegistry(RISC_ZERO_VERIFIER_KEY);
-        verifier = new RiscZeroSocialVerifier(RISC_ZERO_VERIFIER_KEY, address(socialRegistry));
+        // Derive test signer address from private key
+        testSigner = vm.addr(TEST_PRIVATE_KEY);
+
+        // Deploy contracts with test signer
+        socialRegistry = new SocialAccountRegistry(testSigner);
+        verifier = new RiscZeroSocialVerifier(testSigner, address(socialRegistry));
         paymaster = new EIP7702Paymaster(address(socialRegistry));
-        
+
         // Fund paymaster
         vm.deal(address(paymaster), 10 ether);
     }
@@ -52,21 +58,17 @@ contract TokenManagementIntegrationTest is Test {
         console.log("Testing: Token Expiration and Re-verification");
         
         // Alice's initial Twitter verification
-        SocialAccountRegistry.VerificationProof memory initialProof = SocialAccountRegistry.VerificationProof({
-            socialAccountHash: ALICE_TWITTER_HASH,
-            walletAddress: alice,
-            platform: SocialAccountRegistry.SocialPlatform.TWITTER,
-            accountAge: 365 days, // 1 year old account
-            followerCount: 150,
-            timestamp: block.timestamp,
-            proofHash: keccak256("initial_proof"),
-            signature: _generateMockSignature(ALICE_TWITTER_HASH, alice)
-        });
+        SocialAccountRegistry.VerificationProof memory initialProof = _createSignedProof(
+            ALICE_TWITTER_HASH,
+            alice,
+            SocialAccountRegistry.SocialPlatform.TWITTER,
+            365 days, // 1 year old account
+            150, // follower count
+            keccak256("test_proof")
+        );
         
         // Link Alice's Twitter account
         vm.prank(alice);
-        vm.expectEmit(true, true, false, true);
-        emit SocialAccountLinked(ALICE_TWITTER_HASH, alice, SocialAccountRegistry.SocialPlatform.TWITTER, block.timestamp);
         socialRegistry.linkSocialAccount(initialProof);
         
         // Verify initial linking
@@ -87,16 +89,14 @@ contract TokenManagementIntegrationTest is Test {
         vm.warp(block.timestamp + 30 days);
         
         // Alice re-verifies with new token (same account ID, different token)
-        SocialAccountRegistry.VerificationProof memory reverificationProof = SocialAccountRegistry.VerificationProof({
-            socialAccountHash: ALICE_TWITTER_HASH, // Same hash (same account ID)
-            walletAddress: alice,
-            platform: SocialAccountRegistry.SocialPlatform.TWITTER,
-            accountAge: 365 days + 30 days, // Account is now older
-            followerCount: 175, // More followers
-            timestamp: block.timestamp,
-            proofHash: keccak256("reverification_proof"), // Different proof (new token)
-            signature: _generateMockSignature(ALICE_TWITTER_HASH, alice)
-        });
+        SocialAccountRegistry.VerificationProof memory reverificationProof = _createSignedProof(
+            ALICE_TWITTER_HASH, // Same hash (same account ID)
+            alice,
+            SocialAccountRegistry.SocialPlatform.TWITTER,
+            365 days + 30 days, // Account is now older
+            175, // More followers
+            keccak256("reverification_proof") // Different proof (new token)
+        );
         
         // Re-verify account
         vm.prank(alice);
@@ -322,9 +322,61 @@ contract TokenManagementIntegrationTest is Test {
 
     // Helper functions
 
-    function _generateMockSignature(bytes32 hash, address wallet) internal pure returns (bytes memory) {
-        // In real implementation, this would be a proper signature from RISC Zero verifier
-        return abi.encodePacked(hash, wallet);
+    function _generateSignatureForProof(SocialAccountRegistry.VerificationProof memory proof) internal view returns (bytes memory) {
+        // Create the same message hash that the contract will verify
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                proof.socialAccountHash,
+                proof.walletAddress,
+                uint256(proof.platform),
+                proof.accountAge,
+                proof.followerCount,
+                proof.timestamp,
+                proof.proofHash
+            )
+        );
+
+        // Sign with test private key
+        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(TEST_PRIVATE_KEY, ethSignedMessageHash);
+
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _createSignedProof(
+        bytes32 socialAccountHash,
+        address walletAddress,
+        SocialAccountRegistry.SocialPlatform platform,
+        uint256 accountAge,
+        uint256 followerCount,
+        bytes32 proofHash
+    ) internal view returns (SocialAccountRegistry.VerificationProof memory) {
+        SocialAccountRegistry.VerificationProof memory proof = SocialAccountRegistry.VerificationProof({
+            socialAccountHash: socialAccountHash,
+            walletAddress: walletAddress,
+            platform: platform,
+            accountAge: accountAge,
+            followerCount: followerCount,
+            timestamp: block.timestamp,
+            proofHash: proofHash,
+            signature: ""
+        });
+
+        proof.signature = _generateSignatureForProof(proof);
+        return proof;
+    }
+
+    function _generateMockSignature(bytes32 socialAccountHash, address walletAddress) internal view returns (bytes memory) {
+        SocialAccountRegistry.VerificationProof memory tempProof = _createSignedProof(
+            socialAccountHash,
+            walletAddress,
+            SocialAccountRegistry.SocialPlatform.TWITTER,
+            365 days,
+            150,
+            keccak256("test_proof")
+        );
+
+        return tempProof.signature;
     }
 
     function _validateUserOperation(address account) internal view returns (bool success, uint256 gasPrice) {

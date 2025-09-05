@@ -49,7 +49,7 @@ contract TokenManagementIntegrationTest is Test {
     }
 
     function test_TokenExpirationAndReverification() public {
-        console.log("🧪 Testing: Token Expiration and Re-verification");
+        console.log("Testing: Token Expiration and Re-verification");
         
         // Alice's initial Twitter verification
         SocialAccountRegistry.VerificationProof memory initialProof = SocialAccountRegistry.VerificationProof({
@@ -79,7 +79,7 @@ contract TokenManagementIntegrationTest is Test {
         assertTrue(hasVerification);
         assertEq(verificationLevel, 1);
         
-        console.log("✅ Initial verification successful");
+        console.log("Initial verification successful");
         console.log("   Account Hash: %s", vm.toString(ALICE_TWITTER_HASH));
         console.log("   Linked Wallet: %s", alice);
         
@@ -111,13 +111,13 @@ contract TokenManagementIntegrationTest is Test {
         assertTrue(stillHasVerification);
         assertEq(stillVerificationLevel, 1);
         
-        console.log("✅ Re-verification with new token successful");
+        console.log("Re-verification with new token successful");
         console.log("   Same account hash maintained");
         console.log("   Verification level unchanged: %d", stillVerificationLevel);
     }
 
     function test_UsernameChangeWithSameAccount() public {
-        console.log("🧪 Testing: Username Change with Same Account ID");
+        console.log("Testing: Username Change with Same Account ID");
         
         // Bob's initial verification with username "bob_defi"
         SocialAccountRegistry.VerificationProof memory initialProof = SocialAccountRegistry.VerificationProof({
@@ -139,7 +139,7 @@ contract TokenManagementIntegrationTest is Test {
         assertTrue(isLinked);
         assertEq(linkedWallet, bob);
         
-        console.log("✅ Initial verification with username 'bob_defi'");
+        console.log("Initial verification with username 'bob_defi'");
         
         // Bob changes username to "bob_web3" but keeps same account ID
         vm.warp(block.timestamp + 15 days);
@@ -163,13 +163,13 @@ contract TokenManagementIntegrationTest is Test {
         assertTrue(stillLinked);
         assertEq(stillLinkedWallet, bob);
         
-        console.log("✅ Username change handled correctly");
+        console.log("Username change handled correctly");
         console.log("   Same account hash: %s", vm.toString(BOB_TWITTER_HASH));
-        console.log("   Username change: bob_defi → bob_web3");
+        console.log("   Username change: bob_defi -> bob_web3");
     }
 
     function test_AccountTakeoverAttempt() public {
-        console.log("🧪 Testing: Account Takeover Attempt");
+        console.log("Testing: Account Takeover Attempt");
         
         // Alice links her legitimate account
         SocialAccountRegistry.VerificationProof memory aliceProof = SocialAccountRegistry.VerificationProof({
@@ -186,7 +186,7 @@ contract TokenManagementIntegrationTest is Test {
         vm.prank(alice);
         socialRegistry.linkSocialAccount(aliceProof);
         
-        console.log("✅ Alice's legitimate account linked");
+        console.log("Alice's legitimate account linked");
         
         // Attacker tries to link a different account to Alice's wallet
         bytes32 attackerAccountHash = keccak256(abi.encodePacked("TWITTER", "999888777")); // Different account ID
@@ -219,14 +219,14 @@ contract TokenManagementIntegrationTest is Test {
         (bool attackerLinked,) = socialRegistry.isSocialAccountLinked(attackerAccountHash);
         assertTrue(attackerLinked);
         
-        console.log("✅ Multiple accounts can be linked to same wallet");
+        console.log("Multiple accounts can be linked to same wallet");
         console.log("   Original account still linked: %s", originalLinked ? "true" : "false");
         console.log("   New account also linked: %s", attackerLinked ? "true" : "false");
         console.log("   Total verification level: %d", verificationLevel);
     }
 
     function test_MultiPlatformVerification() public {
-        console.log("🧪 Testing: Multi-Platform Verification");
+        console.log("Testing: Multi-Platform Verification");
         
         // Alice verifies Twitter account
         SocialAccountRegistry.VerificationProof memory twitterProof = SocialAccountRegistry.VerificationProof({
@@ -269,14 +269,14 @@ contract TokenManagementIntegrationTest is Test {
         assertTrue(twitterLinked);
         assertTrue(githubLinked);
         
-        console.log("✅ Multi-platform verification successful");
+        console.log("Multi-platform verification successful");
         console.log("   Twitter linked: %s", twitterLinked ? "true" : "false");
         console.log("   GitHub linked: %s", githubLinked ? "true" : "false");
         console.log("   Total verification level: %d", verificationLevel);
     }
 
     function test_PaymasterIntegrationWithSocialVerification() public {
-        console.log("🧪 Testing: Paymaster Integration with Social Verification");
+        console.log("Testing: Paymaster Integration with Social Verification");
         
         // Set up paymaster policy requiring social verification
         EIP7702Paymaster.SponsorshipPolicy memory policy = EIP7702Paymaster.SponsorshipPolicy({
@@ -295,7 +295,7 @@ contract TokenManagementIntegrationTest is Test {
         (bool canSponsorBefore,) = _validateUserOperation(alice);
         assertFalse(canSponsorBefore);
         
-        console.log("✅ Unverified user rejected by paymaster");
+        console.log("Unverified user rejected by paymaster");
         
         // Alice verifies her Twitter account
         SocialAccountRegistry.VerificationProof memory proof = SocialAccountRegistry.VerificationProof({
@@ -316,7 +316,7 @@ contract TokenManagementIntegrationTest is Test {
         (bool canSponsorAfter,) = _validateUserOperation(alice);
         assertTrue(canSponsorAfter);
         
-        console.log("✅ Verified user accepted by paymaster");
+        console.log("Verified user accepted by paymaster");
         console.log("   Social verification enables gas sponsorship");
     }
 
@@ -330,11 +330,13 @@ contract TokenManagementIntegrationTest is Test {
     function _validateUserOperation(address account) internal view returns (bool success, uint256 gasPrice) {
         // Mock user operation
         AbunfiSmartAccount.UserOperation memory userOp = AbunfiSmartAccount.UserOperation({
-            sender: account,
+            target: account,
+            value: 0,
+            data: "",
             nonce: 1,
-            gasLimit: 100000,
             maxFeePerGas: 20 gwei,
             maxPriorityFeePerGas: 2 gwei,
+            gasLimit: 100000,
             paymaster: address(paymaster),
             paymasterData: "",
             signature: ""
@@ -342,8 +344,9 @@ contract TokenManagementIntegrationTest is Test {
         
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
             account: account,
-            userOpHash: keccak256("mock_hash"),
-            maxCost: 100000 * 20 gwei
+            maxFeePerGas: 20 gwei,
+            gasLimit: 100000,
+            signature: ""
         });
         
         return paymaster.validateUserOperation(userOp, context);

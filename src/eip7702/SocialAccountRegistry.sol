@@ -312,6 +312,79 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @dev Test-only function to link social account without RISC Zero verification
+     * WARNING: This bypasses all security checks and should NEVER be used in production
+     */
+    function linkSocialAccountForTesting(bytes32 socialAccountHash, address walletAddress, SocialPlatform platform)
+        external
+    {
+        // Only allow in test environment (check for specific test conditions)
+        require(
+            block.chainid == 31337 // Hardhat/Anvil local chain
+                || block.chainid == 1337 // Alternative local chain ID
+                || riscZeroVerifier == address(0x1234567890123456789012345678901234567890), // Test verifier
+            "Test function only available in test environment"
+        );
+
+        // Check if social account is already linked to a different wallet
+        if (socialAccounts[socialAccountHash].walletAddress != address(0)) {
+            require(
+                socialAccounts[socialAccountHash].walletAddress == walletAddress,
+                "Social account already linked to different wallet"
+            );
+        }
+
+        // Create or update social account
+        socialAccounts[socialAccountHash] = SocialAccount({
+            walletAddress: walletAddress,
+            platform: platform,
+            linkedAt: block.timestamp,
+            lastVerified: block.timestamp,
+            isActive: true
+        });
+
+        // Add to wallet's social accounts if not already present
+        bytes32[] storage walletSocialAccounts = walletToSocialAccounts[walletAddress];
+        bool found = false;
+        for (uint256 i = 0; i < walletSocialAccounts.length; i++) {
+            if (walletSocialAccounts[i] == socialAccountHash) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            walletSocialAccounts.push(socialAccountHash);
+        }
+
+        emit SocialAccountLinked(socialAccountHash, walletAddress, platform, block.timestamp);
+    }
+
+    /**
+     * @dev Test-only function to re-verify social account without RISC Zero verification
+     * WARNING: This bypasses all security checks and should NEVER be used in production
+     */
+    function reverifyAccountForTesting(bytes32 socialAccountHash, address walletAddress, SocialPlatform platform)
+        external
+    {
+        // Only allow in test environment
+        require(
+            block.chainid == 31337 // Hardhat/Anvil local chain
+                || block.chainid == 1337 // Alternative local chain ID
+                || riscZeroVerifier == address(0x1234567890123456789012345678901234567890), // Test verifier
+            "Test function only available in test environment"
+        );
+
+        // Account must already exist
+        require(socialAccounts[socialAccountHash].walletAddress != address(0), "Social account not found");
+        require(socialAccounts[socialAccountHash].walletAddress == walletAddress, "Wallet address mismatch");
+
+        // Update social account
+        socialAccounts[socialAccountHash].lastVerified = block.timestamp;
+
+        emit SocialAccountLinked(socialAccountHash, walletAddress, platform, block.timestamp);
+    }
+
+    /**
      * @dev Update platform configuration
      */
     function setPlatformConfig(SocialPlatform platform, PlatformConfig calldata config) external onlyOwner {

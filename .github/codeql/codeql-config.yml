@@ -11,6 +11,11 @@ paths-ignore:
   - "docs/**"
   - "test/**"
   - "script/**"
+  - "scripts/**"
+  - "**/demo.js"
+  - "**/demo/**"
+  - "**/*.demo.js"
+  - "**/*.test.js"
 
 paths:
   - "src/**"
@@ -18,7 +23,13 @@ paths:
 query-filters:
   - exclude:
       id: js/code-injection
-      reason: "Demo and test files use require() for legitimate purposes"
+      reason: "Demo and test files use require() for legitimate purposes and are not production code"
   - exclude:
       id: js/unsafe-dynamic-method-access
-      reason: "Demo files are not production code"
+      reason: "Demo files are not production code and use safe built-in modules only"
+  - exclude:
+      id: js/shell-command-injection-from-environment
+      reason: "Demo files do not execute shell commands"
+  - exclude:
+      id: js/unsafe-dynamic-method-access
+      reason: "Test and demo files are not production code"

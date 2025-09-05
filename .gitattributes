@@ -10,16 +10,15 @@ examples/** linguist-documentation
 docs/** linguist-documentation
 risc0-social-verifier/** linguist-vendored
 
-# Exclude demo JavaScript from security scanning
+# Exclude demo JavaScript from security scanning (but keep SDK and scripts)
 examples/**/*.js linguist-generated=true
 examples/**/*.ts linguist-generated=true
 
 # Test files
 test/** linguist-generated=true
 
-# Scripts
-script/** linguist-generated=true
-scripts/** linguist-generated=true
+# Library files (third-party)
+lib/** linguist-vendored
 
 # Configuration files
 *.toml linguist-language=TOML

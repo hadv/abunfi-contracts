@@ -10,15 +10,17 @@ paths-ignore:
   - "risc0-social-verifier/**"
   - "docs/**"
   - "test/**"
-  - "script/**"
-  - "scripts/**"
   - "**/demo.js"
   - "**/demo/**"
   - "**/*.demo.js"
   - "**/*.test.js"
+  - "lib/**"
+  - ".eslintrc.js"
 
 paths:
   - "src/**"
+  - "sdk/**"
+  - "scripts/**"
 
 query-filters:
   - exclude:

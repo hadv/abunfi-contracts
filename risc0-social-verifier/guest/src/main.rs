@@ -21,6 +21,8 @@ pub struct VerificationInput {
     pub oauth_token: String,
     pub wallet_address: String,
     pub timestamp: u64,
+    pub nonce: u64, // Prevent replay attacks
+    pub expected_account_id: Option<String>, // For re-verification
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,8 +33,18 @@ pub struct VerificationOutput {
     pub account_age: u64,
     pub follower_count: u64,
     pub timestamp: u64,
-    pub social_account_id: String,
+    pub nonce: u64,
+    pub social_account_id: String, // Stable account ID
+    pub verification_type: VerificationType,
+    pub account_consistency_score: u8, // 0-100 consistency rating
     pub verification_success: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum VerificationType {
+    NewAccount,
+    ReVerification,
+    AccountUpdate,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -75,7 +87,14 @@ pub struct GithubUserData {
 fn main() {
     // Read input from the host
     let input: VerificationInput = env::read();
-    
+
+    // Validate OAuth token first
+    if !validate_oauth_token(&input.oauth_token, &input.platform) {
+        let failed_result = create_failed_verification(&input, "Invalid OAuth token");
+        env::commit(&failed_result);
+        return;
+    }
+
     // Verify the OAuth token and extract user data
     let verification_result = match input.platform {
         SocialPlatform::Twitter => verify_twitter_account(&input),
@@ -84,7 +103,7 @@ fn main() {
         SocialPlatform::Telegram => verify_telegram_account(&input),
         SocialPlatform::LinkedIn => verify_linkedin_account(&input),
     };
-    
+
     // Commit the verification result to the journal
     env::commit(&verification_result);
 }
@@ -92,21 +111,27 @@ fn main() {
 fn verify_twitter_account(input: &VerificationInput) -> VerificationOutput {
     // In a real implementation, this would make HTTP requests to Twitter API
     // For demonstration, we'll simulate the verification process
-    
+
     // Simulate API call to Twitter
     let user_data = simulate_twitter_api_call(&input.oauth_token);
-    
+
     match user_data {
         Ok(data) => {
             // Calculate account age
             let account_age = calculate_account_age(&data.created_at);
-            
-            // Generate social account hash
+
+            // Determine verification type
+            let verification_type = determine_verification_type(input, &data.id);
+
+            // Calculate consistency score
+            let consistency_score = calculate_consistency_score(&verification_type, &data.id);
+
+            // Generate social account hash (always same for same account ID)
             let social_account_hash = generate_social_account_hash(
                 &SocialPlatform::Twitter,
                 &data.id,
             );
-            
+
             VerificationOutput {
                 social_account_hash,
                 wallet_address: input.wallet_address.clone(),
@@ -114,21 +139,15 @@ fn verify_twitter_account(input: &VerificationInput) -> VerificationOutput {
                 account_age,
                 follower_count: data.public_metrics.followers_count,
                 timestamp: input.timestamp,
+                nonce: input.nonce,
                 social_account_id: data.id,
+                verification_type,
+                account_consistency_score: consistency_score,
                 verification_success: true,
             }
         }
         Err(_) => {
-            VerificationOutput {
-                social_account_hash: [0u8; 32],
-                wallet_address: input.wallet_address.clone(),
-                platform: SocialPlatform::Twitter,
-                account_age: 0,
-                follower_count: 0,
-                timestamp: input.timestamp,
-                social_account_id: String::new(),
-                verification_success: false,
-            }
+            create_failed_verification(input, "Twitter API call failed")
         }
     }
 }
@@ -307,5 +326,74 @@ fn calculate_account_age(created_at: &str) -> u64 {
             duration.num_seconds() as u64
         }
         Err(_) => 0,
+    }
+}
+
+fn validate_oauth_token(token: &str, platform: &SocialPlatform) -> bool {
+    // Basic token validation
+    if token.len() < 10 {
+        return false;
+    }
+
+    // Platform-specific token format validation
+    match platform {
+        SocialPlatform::Twitter => token.starts_with("Bearer ") || token.len() > 20,
+        SocialPlatform::Discord => token.len() > 15,
+        SocialPlatform::Github => token.starts_with("ghp_") || token.starts_with("gho_"),
+        _ => token.len() > 10,
+    }
+}
+
+fn determine_verification_type(
+    input: &VerificationInput,
+    account_id: &str,
+) -> VerificationType {
+    match &input.expected_account_id {
+        Some(expected_id) => {
+            if expected_id == account_id {
+                VerificationType::ReVerification
+            } else {
+                VerificationType::AccountUpdate
+            }
+        }
+        None => VerificationType::NewAccount,
+    }
+}
+
+fn calculate_consistency_score(
+    verification_type: &VerificationType,
+    account_data: &str, // In real implementation, this would be structured data
+) -> u8 {
+    match verification_type {
+        VerificationType::NewAccount => 100, // New accounts get full score
+        VerificationType::ReVerification => {
+            // Check consistency with previous verification
+            // This is simplified - in real implementation would compare with stored data
+            if account_data.len() > 0 {
+                95 // High score for successful re-verification
+            } else {
+                50 // Lower score if data seems inconsistent
+            }
+        }
+        VerificationType::AccountUpdate => {
+            // Account ID changed - this should be rare and flagged
+            25 // Low score for account updates
+        }
+    }
+}
+
+fn create_failed_verification(input: &VerificationInput, reason: &str) -> VerificationOutput {
+    VerificationOutput {
+        social_account_hash: [0u8; 32],
+        wallet_address: input.wallet_address.clone(),
+        platform: input.platform.clone(),
+        account_age: 0,
+        follower_count: 0,
+        timestamp: input.timestamp,
+        nonce: input.nonce,
+        social_account_id: String::new(),
+        verification_type: VerificationType::NewAccount,
+        account_consistency_score: 0,
+        verification_success: false,
     }
 }

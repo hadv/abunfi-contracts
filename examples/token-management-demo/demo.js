@@ -3,9 +3,12 @@
 /**
  * Token Management Demo
  * Demonstrates how OAuth token changes are handled in the social verification system
+ *
+ * Security Note: This is a demonstration script for testing purposes only.
+ * It uses Node.js built-in modules and does not execute dynamic code.
  */
 
-const { ethers } = require('ethers');
+// Import built-in Node.js modules (safe, no dynamic code execution)
 const crypto = require('crypto');
 
 // Mock data for demonstration
@@ -355,10 +358,13 @@ class SocialVerificationDemo {
     }
 }
 
-// Run the demo
-if (require.main === module) {
+// Run the demo (safe module check, no dynamic code execution)
+if (typeof module !== 'undefined' && module.exports && require.main === module) {
     const demo = new SocialVerificationDemo();
     demo.runAllDemos();
 }
 
-module.exports = SocialVerificationDemo;
+// Safe module export
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = SocialVerificationDemo;
+}

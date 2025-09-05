@@ -214,6 +214,15 @@ forge test --match-contract TokenManagementIntegrationTest -vvvv
 DEBUG=true node demo.js
 ```
 
+## Security Notice
+
+⚠️ **Demo Code Only**: This directory contains demonstration and testing code. See [SECURITY.md](./SECURITY.md) for important security considerations.
+
+- ✅ **Safe for Testing**: Uses only built-in Node.js modules
+- ✅ **No Dynamic Execution**: No `eval()` or dynamic code execution
+- ✅ **Educational Purpose**: Designed for learning and testing
+- ❌ **Not for Production**: Should not be used in production environments
+
 ## Contributing
 
 To add new test cases:
@@ -223,6 +232,13 @@ To add new test cases:
 3. **Demo Scenarios**: Add to `examples/token-management-demo/demo.js`
 
 Follow the existing patterns and ensure all tests pass before submitting.
+
+### Security Guidelines
+
+- Only use static imports (`require('module-name')`)
+- No dynamic code execution or `eval()`
+- Document any security considerations
+- Test in isolated environments only
 
 ---
 

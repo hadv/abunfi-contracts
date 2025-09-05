@@ -1,0 +1,22 @@
+# Ignore demo and example files from compilation
+examples/
+docs/
+risc0-social-verifier/
+
+# Ignore specific test files that might be slow
+# test/TokenManagementIntegration.t.sol
+
+# Ignore temporary files
+*.tmp
+*.log
+.DS_Store
+
+# Ignore node modules if any
+node_modules/
+
+# Ignore coverage files
+coverage/
+lcov.info
+
+# Ignore gas reports
+gas-report.txt

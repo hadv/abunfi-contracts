@@ -40,7 +40,7 @@ contract PaymasterVaultIntegrationTest is Test {
         // Deploy core infrastructure
         usdc = new MockERC20("USD Coin", "USDC", 6);
         smartAccountImpl = new AbunfiSmartAccount();
-        paymaster = new EIP7702Paymaster();
+        paymaster = new EIP7702Paymaster(address(0));
         bundler = new EIP7702Bundler();
         // Create mock risk management contracts for testing
         address mockRiskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
@@ -83,6 +83,8 @@ contract PaymasterVaultIntegrationTest is Test {
             perTxGasLimit: 0.1 ether,
             dailyTxLimit: 100,
             requiresWhitelist: false,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
         paymaster.setAccountPolicy(premiumUser, premiumPolicy);
@@ -93,6 +95,8 @@ contract PaymasterVaultIntegrationTest is Test {
             perTxGasLimit: 0.01 ether,
             dailyTxLimit: 20,
             requiresWhitelist: false,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
         paymaster.setAccountPolicy(basicUser, basicPolicy);
@@ -103,6 +107,8 @@ contract PaymasterVaultIntegrationTest is Test {
             perTxGasLimit: 0.001 ether,
             dailyTxLimit: 5,
             requiresWhitelist: false,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
         paymaster.setAccountPolicy(restrictedUser, restrictedPolicy);
@@ -113,6 +119,8 @@ contract PaymasterVaultIntegrationTest is Test {
             perTxGasLimit: 0.2 ether,
             dailyTxLimit: 200,
             requiresWhitelist: true,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
         paymaster.setAccountPolicy(whitelistedUser, whitelistPolicy);

@@ -37,7 +37,7 @@ contract DeployEIP7702 is Script {
 
         // 2. Deploy Paymaster
         console.log("\n2. Deploying EIP7702Paymaster...");
-        EIP7702Paymaster paymaster = new EIP7702Paymaster();
+        EIP7702Paymaster paymaster = new EIP7702Paymaster(address(0)); // Placeholder for social registry
         console.log("EIP7702Paymaster deployed at:", address(paymaster));
 
         // 3. Deploy Bundler
@@ -95,6 +95,8 @@ contract DeployEIP7702 is Script {
             perTxGasLimit: DEFAULT_USER_LIMIT,
             dailyTxLimit: DEFAULT_TX_LIMIT,
             requiresWhitelist: false,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
         paymaster.setGlobalPolicy(globalPolicy);

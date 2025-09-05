@@ -1,0 +1,143 @@
+name: Feature Branch Tests
+
+on:
+  push:
+    branches: 
+      - 'feature/**'
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FOUNDRY_PROFILE: ci
+  FOUNDRY_DISABLE_NIGHTLY_WARNING: true
+
+jobs:
+  quick-check:
+    name: Quick validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Cache Foundry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.foundry/cache
+            lib/
+            cache/
+          key: ${{ runner.os }}-foundry-${{ hashFiles('foundry.toml', 'lib/**') }}
+          restore-keys: |
+            ${{ runner.os }}-foundry-
+
+      - name: Install dependencies
+        run: forge install --no-commit || true
+
+      - name: Quick build check
+        run: |
+          echo "Building with CI profile..."
+          time forge build
+          echo "Build completed successfully!"
+
+      - name: Run fast tests
+        run: |
+          echo "Running unit tests (excluding slow integration tests)..."
+          time forge test --no-match-path "test/**/TokenManagementIntegration.t.sol" --summary
+
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: quick-check
+    if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[run-integration]')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Cache Foundry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.foundry/cache
+            lib/
+            cache/
+          key: ${{ runner.os }}-foundry-${{ hashFiles('foundry.toml', 'lib/**') }}
+          restore-keys: |
+            ${{ runner.os }}-foundry-
+
+      - name: Install dependencies
+        run: forge install --no-commit || true
+
+      - name: Run integration tests
+        run: |
+          echo "Running integration tests..."
+          time forge test --match-path "test/**/TokenManagementIntegration.t.sol" -v
+
+  format-check:
+    name: Format check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Check formatting
+        run: forge fmt --check
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [quick-check, integration-tests, format-check]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🚀 Feature Branch Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.quick-check.result }}" == "success" ]; then
+            echo "✅ Quick validation: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Quick validation: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.integration-tests.result }}" == "success" ]; then
+            echo "✅ Integration tests: PASSED" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.integration-tests.result }}" == "skipped" ]; then
+            echo "⏭️ Integration tests: SKIPPED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Integration tests: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.format-check.result }}" == "success" ]; then
+            echo "✅ Format check: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Format check: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Tips for faster development:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Use \`./scripts/test-fast.sh\` for quick local testing" >> $GITHUB_STEP_SUMMARY
+          echo "- Add \`[run-integration]\` to commit message to run integration tests" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration tests run automatically on PRs" >> $GITHUB_STEP_SUMMARY

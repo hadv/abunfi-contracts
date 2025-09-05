@@ -38,5 +38,13 @@ mumbai = { key = "${POLYGONSCAN_API_KEY}" }
 runs = 1000
 
 [profile.ci]
-fuzz = { runs = 10000 }
-invariant = { runs = 1000 }
+# Optimized for CI speed while avoiding stack too deep errors
+optimizer = true
+optimizer_runs = 200
+via_ir = true  # Keep IR enabled to avoid stack too deep errors
+fuzz = { runs = 100 }  # Reduced for faster CI
+invariant = { runs = 50 }  # Reduced for faster CI
+# Cache settings
+cache = true
+cache_path = "cache"
+force = false

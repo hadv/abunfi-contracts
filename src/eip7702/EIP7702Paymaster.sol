@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./AbunfiSmartAccount.sol";
+import "./SocialAccountRegistry.sol";
 
 /**
  * @title EIP7702Paymaster
@@ -31,6 +32,8 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
         uint256 perTxGasLimit; // Per-transaction gas limit in wei
         uint256 dailyTxLimit; // Daily transaction count limit
         bool requiresWhitelist; // Whether account needs to be whitelisted
+        bool requiresSocialVerification; // Whether social verification is required
+        uint256 minimumVerificationLevel; // Minimum number of verified social accounts
         bool isActive; // Whether sponsorship is active
     }
 
@@ -59,6 +62,9 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
     // Trusted bundlers that can call this paymaster
     mapping(address => bool) public trustedBundlers;
 
+    // Social Account Registry for verification
+    SocialAccountRegistry public socialRegistry;
+
     // Emergency controls
     bool public paused = false;
     uint256 public constant RESET_PERIOD = 24 hours;
@@ -78,13 +84,17 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor() Ownable(msg.sender) {
+    constructor(address _socialRegistry) Ownable(msg.sender) {
+        socialRegistry = SocialAccountRegistry(_socialRegistry);
+
         // Set default global policy
         globalPolicy = SponsorshipPolicy({
             dailyGasLimit: DEFAULT_DAILY_GAS_LIMIT,
             perTxGasLimit: DEFAULT_PER_TX_GAS_LIMIT,
             dailyTxLimit: DEFAULT_DAILY_TX_LIMIT,
             requiresWhitelist: false,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
     }
@@ -110,6 +120,16 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
         // Check whitelist requirement
         if (policy.requiresWhitelist && !accountStates[context.account].isWhitelisted) {
             return (false, 0);
+        }
+
+        // Check social verification requirement
+        if (policy.requiresSocialVerification) {
+            (bool hasValidVerification, uint256 verificationLevel) =
+                socialRegistry.getVerificationStatus(context.account);
+
+            if (!hasValidVerification || verificationLevel < policy.minimumVerificationLevel) {
+                return (false, 0);
+            }
         }
 
         // Estimate gas cost
@@ -328,6 +348,14 @@ contract EIP7702Paymaster is Ownable, ReentrancyGuard {
             gasAllowance = policy.dailyGasLimit > state.dailyGasUsed ? policy.dailyGasLimit - state.dailyGasUsed : 0;
             txAllowance = policy.dailyTxLimit > state.dailyTxCount ? policy.dailyTxLimit - state.dailyTxCount : 0;
         }
+    }
+
+    /**
+     * @dev Set social registry contract
+     */
+    function setSocialRegistry(address _socialRegistry) external onlyOwner {
+        require(_socialRegistry != address(0), "Invalid social registry address");
+        socialRegistry = SocialAccountRegistry(_socialRegistry);
     }
 
     // Receive ETH for gas sponsorship

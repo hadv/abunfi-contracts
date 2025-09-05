@@ -1,0 +1,16 @@
+[package]
+name = "social-verifier-guest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+risc0-zkvm = { version = "1.0", default-features = false, features = ["std"] }
+serde = { version = "1.0", features = ["derive"], default-features = false }
+serde_json = { version = "1.0", default-features = false }
+sha2 = { version = "0.10", default-features = false }
+hex = { version = "0.4", default-features = false }
+chrono = { version = "0.4", features = ["serde"], default-features = false }
+
+[[bin]]
+name = "social-verifier-guest"
+path = "src/main.rs"

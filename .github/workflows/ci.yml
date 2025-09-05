@@ -14,10 +14,11 @@ concurrency:
 env:
   FOUNDRY_PROFILE: ci
   FOUNDRY_DISABLE_NIGHTLY_WARNING: true
+  FOUNDRY_CACHE_PATH: ~/.foundry/cache
 
 jobs:
-  check:
-    name: Foundry project
+  build:
+    name: Build contracts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,29 +30,73 @@ jobs:
         with:
           version: nightly
 
-      - name: Show Forge version
-        run: |
-          forge --version
-          anvil --version
+      - name: Cache Foundry dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.foundry/cache
+            lib/
+          key: ${{ runner.os }}-foundry-${{ hashFiles('foundry.toml', 'lib/**') }}
+          restore-keys: |
+            ${{ runner.os }}-foundry-
 
       - name: Install dependencies
         run: forge install --no-commit || true
 
-      - name: Run Forge build
-        run: |
-          forge --version
-          forge build --sizes
-        id: build
+      - name: Build contracts
+        run: forge build --sizes
 
-      - name: Run Forge tests
-        run: |
-          forge test -vvv --gas-report
-        id: test
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        test-group: [unit, integration]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Run Forge fmt check
-        run: |
-          forge fmt --check
-        id: fmt
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Cache Foundry dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.foundry/cache
+            lib/
+          key: ${{ runner.os }}-foundry-${{ hashFiles('foundry.toml', 'lib/**') }}
+          restore-keys: |
+            ${{ runner.os }}-foundry-
+
+      - name: Install dependencies
+        run: forge install --no-commit || true
+
+      - name: Run unit tests
+        if: matrix.test-group == 'unit'
+        run: forge test --match-path "test/**/*.t.sol" --no-match-path "test/**/TokenManagementIntegration.t.sol" -v
+
+      - name: Run integration tests
+        if: matrix.test-group == 'integration'
+        run: forge test --match-path "test/**/TokenManagementIntegration.t.sol" -v
+
+  format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Check Solidity formatting
+        run: forge fmt --check
 
   # coverage:
   #   runs-on: ubuntu-latest
@@ -334,7 +379,7 @@ jobs:
 
   build-success:
     runs-on: ubuntu-latest
-    needs: [check, lint, security-check]
+    needs: [build, test, format, lint, security-check]
     if: always()
     steps:
       - name: Check all jobs

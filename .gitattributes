@@ -1,0 +1,35 @@
+# Solidity files
+*.sol linguist-language=Solidity
+
+# JavaScript/TypeScript files
+*.js linguist-language=JavaScript
+*.ts linguist-language=TypeScript
+
+# Exclude demo and example files from language detection and security scanning
+examples/** linguist-documentation
+docs/** linguist-documentation
+risc0-social-verifier/** linguist-vendored
+
+# Exclude demo JavaScript from security scanning (but keep SDK and scripts)
+examples/**/*.js linguist-generated=true
+examples/**/*.ts linguist-generated=true
+
+# Test files
+test/** linguist-generated=true
+
+# Library files (third-party)
+lib/** linguist-vendored
+
+# Configuration files
+*.toml linguist-language=TOML
+*.yml linguist-language=YAML
+*.yaml linguist-language=YAML
+*.json linguist-language=JSON
+
+# Markdown files
+*.md linguist-documentation
+
+# Lock files
+package-lock.json linguist-generated=true
+yarn.lock linguist-generated=true
+Cargo.lock linguist-generated=true

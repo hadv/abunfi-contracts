@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISC Zero Social Verification Demo</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+        
+        .section h3 {
+            margin-top: 0;
+            color: #2d3748;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+        
+        .status.info {
+            background: #bee3f8;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+        
+        .verification-status {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .verification-card {
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: white;
+        }
+        
+        .platform-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        
+        .platform-badge.twitter { background: #e6f3ff; color: #1da1f2; }
+        .platform-badge.discord { background: #f0f0ff; color: #7289da; }
+        .platform-badge.github { background: #f6f8fa; color: #24292e; }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 RISC Zero Social Verification</h1>
+        
+        <!-- Wallet Connection -->
+        <div class="section">
+            <h3>1. Connect Wallet</h3>
+            <button id="connectWallet">Connect MetaMask</button>
+            <div id="walletStatus" class="status info" style="display: none;">
+                Wallet: <span id="walletAddress"></span>
+            </div>
+        </div>
+        
+        <!-- Social Verification -->
+        <div class="section">
+            <h3>2. Verify Social Account</h3>
+            <div class="form-group">
+                <label for="platform">Social Platform:</label>
+                <select id="platform">
+                    <option value="twitter">Twitter</option>
+                    <option value="discord">Discord</option>
+                    <option value="github">GitHub</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="oauthToken">OAuth Token:</label>
+                <input type="password" id="oauthToken" placeholder="Paste your OAuth token here">
+                <small>Get your token from the platform's developer console</small>
+            </div>
+            <button id="verifyAccount" disabled>Verify Social Account</button>
+            <div id="verificationStatus"></div>
+        </div>
+        
+        <!-- Verification Results -->
+        <div class="section">
+            <h3>3. Verification Status</h3>
+            <button id="checkStatus">Check My Verification Status</button>
+            <div id="statusResults"></div>
+        </div>
+        
+        <!-- Gasless Transaction Test -->
+        <div class="section">
+            <h3>4. Test Gasless Transaction</h3>
+            <div class="form-group">
+                <label for="recipient">Recipient Address:</label>
+                <input type="text" id="recipient" placeholder="0x...">
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount (ETH):</label>
+                <input type="number" id="amount" step="0.001" placeholder="0.001">
+            </div>
+            <button id="sendGasless" disabled>Send Gasless Transaction</button>
+            <div id="transactionStatus"></div>
+        </div>
+    </div>
+
+    <script>
+        // Contract addresses (replace with actual deployed addresses)
+        const CONTRACTS = {
+            socialRegistry: '0x...', // Replace with deployed SocialAccountRegistry address
+            riscZeroVerifier: '0x...', // Replace with deployed RiscZeroSocialVerifier address
+            paymaster: '0x...', // Replace with deployed EIP7702Paymaster address
+        };
+        
+        // RISC Zero verification service endpoint
+        const VERIFICATION_SERVICE_URL = 'http://localhost:3000'; // Replace with actual service URL
+        
+        let provider, signer, walletAddress;
+        let socialRegistryContract, verifierContract, paymasterContract;
+        
+        // Contract ABIs (simplified for demo)
+        const SOCIAL_REGISTRY_ABI = [
+            "function linkSocialAccount(tuple(bytes32,address,uint8,uint256,uint256,uint256,bytes32,bytes)) external",
+            "function getVerificationStatus(address) external view returns (bool, uint256)",
+            "function isSocialAccountLinked(bytes32) external view returns (bool, address)"
+        ];
+        
+        const VERIFIER_ABI = [
+            "function requestVerification(uint8,string,address) external returns (bytes32)",
+            "function getVerificationResult(bytes32) external view returns (bool,bool,tuple(bytes32,address,uint8,uint256,uint256,uint256,string,bytes32))"
+        ];
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+        });
+        
+        function setupEventListeners() {
+            document.getElementById('connectWallet').addEventListener('click', connectWallet);
+            document.getElementById('verifyAccount').addEventListener('click', verifyAccount);
+            document.getElementById('checkStatus').addEventListener('click', checkVerificationStatus);
+            document.getElementById('sendGasless').addEventListener('click', sendGaslessTransaction);
+        }
+        
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum !== 'undefined') {
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    await provider.send("eth_requestAccounts", []);
+                    signer = provider.getSigner();
+                    walletAddress = await signer.getAddress();
+                    
+                    // Initialize contracts
+                    socialRegistryContract = new ethers.Contract(CONTRACTS.socialRegistry, SOCIAL_REGISTRY_ABI, signer);
+                    verifierContract = new ethers.Contract(CONTRACTS.riscZeroVerifier, VERIFIER_ABI, signer);
+                    
+                    // Update UI
+                    document.getElementById('walletAddress').textContent = walletAddress;
+                    document.getElementById('walletStatus').style.display = 'block';
+                    document.getElementById('verifyAccount').disabled = false;
+                    document.getElementById('checkStatus').disabled = false;
+                    document.getElementById('sendGasless').disabled = false;
+                    
+                    showStatus('walletStatus', 'success', `Connected: ${walletAddress}`);
+                } else {
+                    showStatus('walletStatus', 'error', 'MetaMask not found. Please install MetaMask.');
+                }
+            } catch (error) {
+                showStatus('walletStatus', 'error', `Connection failed: ${error.message}`);
+            }
+        }
+        
+        async function verifyAccount() {
+            const platform = document.getElementById('platform').value;
+            const oauthToken = document.getElementById('oauthToken').value;
+            
+            if (!oauthToken) {
+                showStatus('verificationStatus', 'error', 'Please enter an OAuth token');
+                return;
+            }
+            
+            try {
+                showStatus('verificationStatus', 'info', 'Generating ZK proof... <div class="loading"></div>');
+                
+                // Call RISC Zero verification service
+                const response = await fetch(`${VERIFICATION_SERVICE_URL}/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        platform: platform,
+                        oauth_token: oauthToken,
+                        wallet_address: walletAddress
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Submit proof to blockchain
+                    showStatus('verificationStatus', 'info', 'Submitting proof to blockchain...');
+                    
+                    const proof = {
+                        socialAccountHash: result.social_account_hash,
+                        walletAddress: walletAddress,
+                        platform: getPlatformId(platform),
+                        accountAge: result.account_age,
+                        followerCount: result.follower_count,
+                        timestamp: Math.floor(Date.now() / 1000),
+                        proofHash: result.proof_hash,
+                        signature: result.signature || '0x'
+                    };
+                    
+                    const tx = await socialRegistryContract.linkSocialAccount(proof);
+                    await tx.wait();
+                    
+                    showStatus('verificationStatus', 'success', 
+                        `✅ ${platform.toUpperCase()} account verified successfully!<br>
+                         Account Age: ${Math.floor(result.account_age / 86400)} days<br>
+                         Followers: ${result.follower_count}`);
+                } else {
+                    showStatus('verificationStatus', 'error', `Verification failed: ${result.error}`);
+                }
+            } catch (error) {
+                showStatus('verificationStatus', 'error', `Error: ${error.message}`);
+            }
+        }
+        
+        async function checkVerificationStatus() {
+            try {
+                const [hasVerification, verificationLevel] = await socialRegistryContract.getVerificationStatus(walletAddress);
+                
+                let statusHtml = `
+                    <div class="verification-status">
+                        <div class="verification-card">
+                            <strong>Verification Status:</strong><br>
+                            ${hasVerification ? '✅ Verified' : '❌ Not Verified'}
+                        </div>
+                        <div class="verification-card">
+                            <strong>Verification Level:</strong><br>
+                            ${verificationLevel.toString()} platform(s)
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('statusResults').innerHTML = statusHtml;
+            } catch (error) {
+                showStatus('statusResults', 'error', `Error checking status: ${error.message}`);
+            }
+        }
+        
+        async function sendGaslessTransaction() {
+            const recipient = document.getElementById('recipient').value;
+            const amount = document.getElementById('amount').value;
+            
+            if (!recipient || !amount) {
+                showStatus('transactionStatus', 'error', 'Please enter recipient and amount');
+                return;
+            }
+            
+            try {
+                showStatus('transactionStatus', 'info', 'Preparing gasless transaction...');
+                
+                // This is a simplified example - in reality you would:
+                // 1. Create a meta-transaction
+                // 2. Sign it with the user's wallet
+                // 3. Submit to the bundler/paymaster
+                
+                showStatus('transactionStatus', 'success', 
+                    `🚀 Gasless transaction would be sent to ${recipient} for ${amount} ETH<br>
+                     <small>This is a demo - no actual transaction sent</small>`);
+            } catch (error) {
+                showStatus('transactionStatus', 'error', `Transaction failed: ${error.message}`);
+            }
+        }
+        
+        function showStatus(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            element.className = `status ${type}`;
+            element.innerHTML = message;
+            element.style.display = 'block';
+        }
+        
+        function getPlatformId(platform) {
+            const platforms = { twitter: 0, discord: 1, github: 2, telegram: 3, linkedin: 4 };
+            return platforms[platform] || 0;
+        }
+    </script>
+</body>
+</html>

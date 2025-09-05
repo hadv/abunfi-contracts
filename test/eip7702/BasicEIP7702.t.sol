@@ -24,7 +24,7 @@ contract BasicEIP7702Test is Test {
 
         // Deploy contracts
         smartAccount = new AbunfiSmartAccount();
-        paymaster = new EIP7702Paymaster();
+        paymaster = new EIP7702Paymaster(address(0));
         bundler = new EIP7702Bundler();
 
         // Configure system
@@ -73,6 +73,8 @@ contract BasicEIP7702Test is Test {
             perTxGasLimit: 0.1 ether,
             dailyTxLimit: 10,
             requiresWhitelist: true,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
 
@@ -96,6 +98,8 @@ contract BasicEIP7702Test is Test {
             perTxGasLimit: 0.1 ether,
             dailyTxLimit: 100,
             requiresWhitelist: true,
+            requiresSocialVerification: false,
+            minimumVerificationLevel: 1,
             isActive: true
         });
 
@@ -137,7 +141,7 @@ contract BasicEIP7702Test is Test {
         assertTrue(bundler.supportedPaymasters(address(paymaster)));
 
         // Test adding another paymaster
-        EIP7702Paymaster newPaymaster = new EIP7702Paymaster();
+        EIP7702Paymaster newPaymaster = new EIP7702Paymaster(address(0));
 
         vm.prank(owner);
         bundler.addPaymaster(address(newPaymaster));

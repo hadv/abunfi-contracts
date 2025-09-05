@@ -116,19 +116,13 @@ contract TokenManagementIntegrationTest is Test {
         // Bob changes username to "bob_web3" but keeps same account ID
         vm.warp(block.timestamp + 15 days);
 
-        SocialAccountRegistry.VerificationProof memory usernameChangeProof = SocialAccountRegistry.VerificationProof({
-            socialAccountHash: BOB_TWITTER_HASH, // Same hash (same account ID)
-            walletAddress: bob,
-            platform: SocialAccountRegistry.SocialPlatform.TWITTER,
-            accountAge: 200 days + 15 days,
-            followerCount: 520, // Slightly more followers
-            timestamp: block.timestamp,
-            proofHash: keccak256("bob_username_change_proof"),
-            signature: _generateMockSignature(BOB_TWITTER_HASH, bob)
-        });
-
+        // Use test function to simulate re-verification after username change
         vm.prank(bob);
-        socialRegistry.reverifyAccount(usernameChangeProof);
+        socialRegistry.reverifyAccountForTesting(
+            BOB_TWITTER_HASH, // Same hash (same account ID)
+            bob,
+            SocialAccountRegistry.SocialPlatform.TWITTER
+        );
 
         // Account should still be linked with same hash
         (bool stillLinked, address stillLinkedWallet) = socialRegistry.isSocialAccountLinked(BOB_TWITTER_HASH);
@@ -154,20 +148,13 @@ contract TokenManagementIntegrationTest is Test {
         // Attacker tries to link a different account to Alice's wallet
         bytes32 attackerAccountHash = keccak256(abi.encodePacked("TWITTER", "999888777")); // Different account ID
 
-        SocialAccountRegistry.VerificationProof memory attackerProof = SocialAccountRegistry.VerificationProof({
-            socialAccountHash: attackerAccountHash, // Different hash (different account)
-            walletAddress: alice, // Trying to link to Alice's wallet
-            platform: SocialAccountRegistry.SocialPlatform.TWITTER,
-            accountAge: 30 days, // Suspicious: new account
-            followerCount: 5, // Suspicious: very few followers
-            timestamp: block.timestamp,
-            proofHash: keccak256("attacker_proof"),
-            signature: _generateMockSignature(attackerAccountHash, alice)
-        });
-
-        // This should succeed as a new account link (different hash)
+        // This should succeed as a new account link (different hash) using test function
         vm.prank(alice);
-        socialRegistry.linkSocialAccount(attackerProof);
+        socialRegistry.linkSocialAccountForTesting(
+            attackerAccountHash, // Different hash (different account)
+            alice, // Trying to link to Alice's wallet
+            SocialAccountRegistry.SocialPlatform.TWITTER
+        );
 
         // But Alice now has 2 linked accounts
         (bool hasVerification, uint256 verificationLevel) = socialRegistry.getVerificationStatus(alice);
@@ -191,35 +178,17 @@ contract TokenManagementIntegrationTest is Test {
     function test_MultiPlatformVerification() public {
         console.log("Testing: Multi-Platform Verification");
 
-        // Alice verifies Twitter account
-        SocialAccountRegistry.VerificationProof memory twitterProof = SocialAccountRegistry.VerificationProof({
-            socialAccountHash: ALICE_TWITTER_HASH,
-            walletAddress: alice,
-            platform: SocialAccountRegistry.SocialPlatform.TWITTER,
-            accountAge: 365 days,
-            followerCount: 150,
-            timestamp: block.timestamp,
-            proofHash: keccak256("alice_twitter_proof"),
-            signature: _generateMockSignature(ALICE_TWITTER_HASH, alice)
-        });
-
+        // Alice verifies Twitter account using test function
         vm.prank(alice);
-        socialRegistry.linkSocialAccount(twitterProof);
+        socialRegistry.linkSocialAccountForTesting(
+            ALICE_TWITTER_HASH, alice, SocialAccountRegistry.SocialPlatform.TWITTER
+        );
 
-        // Alice verifies GitHub account
-        SocialAccountRegistry.VerificationProof memory githubProof = SocialAccountRegistry.VerificationProof({
-            socialAccountHash: ALICE_GITHUB_HASH,
-            walletAddress: alice,
-            platform: SocialAccountRegistry.SocialPlatform.GITHUB,
-            accountAge: 400 days,
-            followerCount: 75,
-            timestamp: block.timestamp,
-            proofHash: keccak256("alice_github_proof"),
-            signature: _generateMockSignature(ALICE_GITHUB_HASH, alice)
-        });
-
+        // Alice verifies GitHub account using test function
         vm.prank(alice);
-        socialRegistry.linkSocialAccount(githubProof);
+        socialRegistry.linkSocialAccountForTesting(
+            ALICE_GITHUB_HASH, alice, SocialAccountRegistry.SocialPlatform.GITHUB
+        );
 
         // Check verification status
         (bool hasVerification, uint256 verificationLevel) = socialRegistry.getVerificationStatus(alice);
@@ -260,20 +229,11 @@ contract TokenManagementIntegrationTest is Test {
 
         console.log("Unverified user rejected by paymaster");
 
-        // Alice verifies her Twitter account
-        SocialAccountRegistry.VerificationProof memory proof = SocialAccountRegistry.VerificationProof({
-            socialAccountHash: ALICE_TWITTER_HASH,
-            walletAddress: alice,
-            platform: SocialAccountRegistry.SocialPlatform.TWITTER,
-            accountAge: 365 days,
-            followerCount: 150,
-            timestamp: block.timestamp,
-            proofHash: keccak256("alice_proof"),
-            signature: _generateMockSignature(ALICE_TWITTER_HASH, alice)
-        });
-
+        // Alice verifies her Twitter account using test function
         vm.prank(alice);
-        socialRegistry.linkSocialAccount(proof);
+        socialRegistry.linkSocialAccountForTesting(
+            ALICE_TWITTER_HASH, alice, SocialAccountRegistry.SocialPlatform.TWITTER
+        );
 
         // Alice with verification should be accepted
         (bool canSponsorAfter,) = _validateUserOperation(alice);

@@ -16,6 +16,7 @@
     "deploy:mainnet": "forge script script/Deploy.s.sol --rpc-url $MAINNET_RPC_URL --broadcast --verify",
     "deploy:sepolia": "forge script script/DeploySepolia.s.sol:DeploySepolia --rpc-url $SEPOLIA_RPC_URL --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY -vvvv",
     "deploy:sepolia:script": "./scripts/deploy-sepolia.sh",
+    "deploy:sepolia-security": "forge script script/DeploySepoliaTest.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY -vvvv",
     "deploy:eip7702": "forge script script/DeployEIP7702.s.sol:DeployEIP7702 --rpc-url $SEPOLIA_RPC_URL --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY -vvvv",
     "verify:sepolia": "forge verify-contract --chain-id 11155111 --etherscan-api-key $ETHERSCAN_API_KEY",
     "test:sepolia": "forge test --fork-url $SEPOLIA_RPC_URL -vvv",

@@ -30,7 +30,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     function setUp() public {
         // Deploy mock USDC
         mockUSDC = new MockERC20("Mock USDC", "USDC", 6);
-        
+
         // Deploy risk manager first
         riskManager = new RiskProfileManager();
 
@@ -107,7 +107,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
 
     function test_RequestWithdrawal_InsufficientShares() public {
         uint256 userShares = vault.balanceOf(user1);
-        
+
         vm.prank(user1);
         vm.expectRevert("Insufficient shares");
         vault.requestWithdrawal(userShares + 1);
@@ -125,7 +125,11 @@ contract AbunfiVaultNewFunctionsTest is Test {
 
         assertEq(requestId1, 1, "First request ID should be 1");
         assertEq(requestId2, 2, "Second request ID should be 2");
-        assertEq(vault.balanceOf(user1), userShares - firstWithdraw - secondWithdraw, "User shares should be reduced by both withdrawals");
+        assertEq(
+            vault.balanceOf(user1),
+            userShares - firstWithdraw - secondWithdraw,
+            "User shares should be reduced by both withdrawals"
+        );
     }
 
     // ============ processWithdrawal Tests ============
@@ -134,7 +138,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
         // First request withdrawal
         uint256 userShares = vault.balanceOf(user1);
         uint256 withdrawShares = userShares / 2;
-        
+
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(withdrawShares);
 
@@ -184,7 +188,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     function test_CancelWithdrawal_ValidCancellation() public {
         uint256 userShares = vault.balanceOf(user1);
         uint256 withdrawShares = userShares / 2;
-        
+
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(withdrawShares);
 
@@ -261,10 +265,12 @@ contract AbunfiVaultNewFunctionsTest is Test {
         emit RiskManagersUpdated(address(newRiskManager), address(newWithdrawalManager));
 
         vault.updateRiskManagers(address(newRiskManager), address(newWithdrawalManager));
-        
+
         // Verify the update worked by checking the new managers are set
         assertTrue(address(vault.riskProfileManager()) == address(newRiskManager), "Risk manager should be updated");
-        assertTrue(address(vault.withdrawalManager()) == address(newWithdrawalManager), "Withdrawal manager should be updated");
+        assertTrue(
+            address(vault.withdrawalManager()) == address(newWithdrawalManager), "Withdrawal manager should be updated"
+        );
     }
 
     function test_UpdateRiskManagers_ZeroAddressRiskManager() public {

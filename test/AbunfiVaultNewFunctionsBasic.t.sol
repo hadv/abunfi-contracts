@@ -85,10 +85,10 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
 
     function test_RequestWithdrawal_ValidRequest() public {
         uint256 userShares = vault.userShares(user1);
-        
+
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(userShares);
-        
+
         assertEq(requestId, 1, "Request ID should be 1");
     }
 
@@ -100,7 +100,7 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
 
     function test_RequestWithdrawal_InsufficientShares() public {
         uint256 userShares = vault.userShares(user1);
-        
+
         vm.expectRevert("Insufficient shares");
         vm.prank(user1);
         vault.requestWithdrawal(userShares + 1);
@@ -167,7 +167,9 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
 
         // Verify the update worked by checking the new managers are set
         assertTrue(address(vault.riskProfileManager()) == address(newRiskManager), "Risk manager should be updated");
-        assertTrue(address(vault.withdrawalManager()) == address(newWithdrawalManager), "Withdrawal manager should be updated");
+        assertTrue(
+            address(vault.withdrawalManager()) == address(newWithdrawalManager), "Withdrawal manager should be updated"
+        );
     }
 
     function test_UpdateRiskManagers_ZeroAddresses() public {

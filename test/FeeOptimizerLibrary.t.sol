@@ -6,7 +6,7 @@ import "../src/libraries/FeeOptimizer.sol";
 
 contract FeeOptimizerLibraryTest is Test {
     FeeOptimizer.FeeConfig public config;
-    
+
     uint256 public constant BASE_FEE = 3000; // 0.3%
     uint256 public constant MIN_FEE = 500; // 0.05%
     uint256 public constant MAX_FEE = 10000; // 1%
@@ -176,13 +176,7 @@ contract FeeOptimizerLibraryTest is Test {
 
         uint24 currentFee = uint24(BASE_FEE);
 
-        bool needsUpdate = FeeOptimizer.needsFeeUpdate(
-            lastUpdate,
-            updateFrequency,
-            conditions,
-            currentFee,
-            config
-        );
+        bool needsUpdate = FeeOptimizer.needsFeeUpdate(lastUpdate, updateFrequency, conditions, currentFee, config);
 
         assertFalse(needsUpdate, "Should not update fee too frequently");
     }
@@ -201,13 +195,7 @@ contract FeeOptimizerLibraryTest is Test {
 
         uint24 currentFee = uint24(BASE_FEE);
 
-        bool needsUpdate = FeeOptimizer.needsFeeUpdate(
-            lastUpdate,
-            updateFrequency,
-            conditions,
-            currentFee,
-            config
-        );
+        bool needsUpdate = FeeOptimizer.needsFeeUpdate(lastUpdate, updateFrequency, conditions, currentFee, config);
 
         assertTrue(needsUpdate, "Should update fee after sufficient time with market changes");
     }

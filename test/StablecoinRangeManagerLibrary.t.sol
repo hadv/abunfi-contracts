@@ -6,7 +6,7 @@ import "../src/libraries/StablecoinRangeManager.sol";
 
 contract StablecoinRangeManagerLibraryTest is Test {
     StablecoinRangeManager.RangeConfig public config;
-    
+
     uint256 public constant TARGET_PRICE = 1000000; // 1.0 in 6 decimals
     uint256 public constant DEFAULT_RANGE_WIDTH = 200; // 2%
     uint256 public constant MAX_RANGE_WIDTH = 1000; // 10%
@@ -30,7 +30,8 @@ contract StablecoinRangeManagerLibraryTest is Test {
 
     function test_CalculateOptimalRange_AtTarget() public {
         int24 currentTick = 0; // At target price
-        (int24 lowerTick, int24 upperTick) = StablecoinRangeManager.calculateOptimalRange(currentTick, DEFAULT_RANGE_WIDTH);
+        (int24 lowerTick, int24 upperTick) =
+            StablecoinRangeManager.calculateOptimalRange(currentTick, DEFAULT_RANGE_WIDTH);
 
         assertLt(lowerTick, 0, "Lower tick should be negative");
         assertGt(upperTick, 0, "Upper tick should be positive");
@@ -40,7 +41,8 @@ contract StablecoinRangeManagerLibraryTest is Test {
     function test_CalculateOptimalRange_AboveTarget() public {
         int24 currentTick = 100; // Above target price
 
-        (int24 lowerTick, int24 upperTick) = StablecoinRangeManager.calculateOptimalRange(currentTick, DEFAULT_RANGE_WIDTH);
+        (int24 lowerTick, int24 upperTick) =
+            StablecoinRangeManager.calculateOptimalRange(currentTick, DEFAULT_RANGE_WIDTH);
 
         assertLt(lowerTick, currentTick, "Lower tick should be below current");
         assertGt(upperTick, currentTick, "Upper tick should be above current");
@@ -52,7 +54,8 @@ contract StablecoinRangeManagerLibraryTest is Test {
     function test_CalculateOptimalRange_BelowTarget() public {
         int24 currentTick = -100; // Below target price
 
-        (int24 lowerTick, int24 upperTick) = StablecoinRangeManager.calculateOptimalRange(currentTick, DEFAULT_RANGE_WIDTH);
+        (int24 lowerTick, int24 upperTick) =
+            StablecoinRangeManager.calculateOptimalRange(currentTick, DEFAULT_RANGE_WIDTH);
 
         assertLt(lowerTick, currentTick, "Lower tick should be below current");
         assertGt(upperTick, currentTick, "Upper tick should be above current");
@@ -90,7 +93,8 @@ contract StablecoinRangeManagerLibraryTest is Test {
         uint256 lowVolatility = 5; // 0.05%
         uint256 highVolume = 10000000e6; // $10M
 
-        StablecoinRangeManager.RangeConfig memory recommendedConfig = StablecoinRangeManager.getRecommendedConfig(lowVolatility, highVolume);
+        StablecoinRangeManager.RangeConfig memory recommendedConfig =
+            StablecoinRangeManager.getRecommendedConfig(lowVolatility, highVolume);
 
         assertLt(recommendedConfig.rangeWidth, 100, "Low volatility should recommend tight range");
         assertTrue(recommendedConfig.autoRebalance, "Auto rebalance should be enabled");
@@ -100,7 +104,8 @@ contract StablecoinRangeManagerLibraryTest is Test {
         uint256 highVolatility = 100; // 1%
         uint256 lowVolume = 100000e6; // $100k
 
-        StablecoinRangeManager.RangeConfig memory recommendedConfig = StablecoinRangeManager.getRecommendedConfig(highVolatility, lowVolume);
+        StablecoinRangeManager.RangeConfig memory recommendedConfig =
+            StablecoinRangeManager.getRecommendedConfig(highVolatility, lowVolume);
 
         assertGt(recommendedConfig.rangeWidth, 50, "High volatility should recommend wider range");
         assertTrue(recommendedConfig.autoRebalance, "Auto rebalance should be enabled");
@@ -116,11 +121,7 @@ contract StablecoinRangeManagerLibraryTest is Test {
         int24 currentTick = 0;
 
         (uint128 liquidity, uint256 amount0, uint256 amount1) = StablecoinRangeManager.calculateLiquidityAmounts(
-            tickLower,
-            tickUpper,
-            amount0Desired,
-            amount1Desired,
-            currentTick
+            tickLower, tickUpper, amount0Desired, amount1Desired, currentTick
         );
 
         assertGt(liquidity, 0, "Liquidity should be positive");
@@ -151,14 +152,14 @@ contract StablecoinRangeManagerLibraryTest is Test {
     }
 
     function test_PriceToTick_HighPrice() public {
-        uint160 highPrice = 2**96; // High price
+        uint160 highPrice = 2 ** 96; // High price
         int24 tick = StablecoinRangeManager.priceToTick(highPrice);
 
         assertGt(tick, 0, "High price should convert to positive tick");
     }
 
     function test_PriceToTick_LowPrice() public {
-        uint160 lowPrice = 2**64; // Low price
+        uint160 lowPrice = 2 ** 64; // Low price
         int24 tick = StablecoinRangeManager.priceToTick(lowPrice);
 
         assertLt(tick, 0, "Low price should convert to negative tick");

@@ -71,24 +71,13 @@ contract AbunfiIntegrationTest is Test {
         );
 
         // Deploy new withdrawal manager with correct vault address
-        withdrawalManager = new WithdrawalManager(
-            address(vault),
-            address(mockUSDC)
-        );
+        withdrawalManager = new WithdrawalManager(address(vault), address(mockUSDC));
 
         // Deploy strategies
-        aaveStrategy = new AaveStrategy(
-            address(mockUSDC),
-            address(mockAavePool),
-            address(mockAaveDataProvider),
-            address(vault)
-        );
-        compoundStrategy = new CompoundStrategy(
-            address(mockUSDC),
-            address(mockComet),
-            address(mockCometRewards),
-            address(vault)
-        );
+        aaveStrategy =
+            new AaveStrategy(address(mockUSDC), address(mockAavePool), address(mockAaveDataProvider), address(vault));
+        compoundStrategy =
+            new CompoundStrategy(address(mockUSDC), address(mockComet), address(mockCometRewards), address(vault));
         mockStrategy = new MockStrategy(address(mockUSDC), "Mock Strategy", 500); // 5% APY
 
         // Set up vault
@@ -112,10 +101,10 @@ contract AbunfiIntegrationTest is Test {
         // Phase 1: Multiple users deposit
         vm.prank(user1);
         vault.deposit(INITIAL_DEPOSIT);
-        
+
         vm.prank(user2);
         vault.deposit(INITIAL_DEPOSIT * 2);
-        
+
         vm.prank(user3);
         vault.deposit(INITIAL_DEPOSIT / 2);
 
@@ -125,13 +114,13 @@ contract AbunfiIntegrationTest is Test {
         // Phase 2: Some users request withdrawals
         vm.prank(user1);
         uint256 requestId1 = vault.requestWithdrawal(vault.balanceOf(user1) / 2);
-        
+
         vm.prank(user2);
         uint256 requestId2 = vault.requestWithdrawal(vault.balanceOf(user2) / 3);
 
         // Phase 3: Time passes and withdrawals are processed
         vm.warp(block.timestamp + 1 days);
-        
+
         uint256 user1BalanceBefore = mockUSDC.balanceOf(user1);
         vm.prank(user1);
         vault.processWithdrawal(requestId1);
@@ -145,7 +134,7 @@ contract AbunfiIntegrationTest is Test {
         // Phase 4: New deposits while withdrawals are happening
         vm.prank(user4);
         vault.deposit(INITIAL_DEPOSIT);
-        
+
         vm.prank(user5);
         vault.deposit(INITIAL_DEPOSIT * 1.5e18 / 1e18);
 
@@ -156,7 +145,7 @@ contract AbunfiIntegrationTest is Test {
         // Setup initial deposits
         vm.prank(user1);
         vault.deposit(INITIAL_DEPOSIT);
-        
+
         vm.prank(user2);
         vault.deposit(INITIAL_DEPOSIT);
 
@@ -173,9 +162,9 @@ contract AbunfiIntegrationTest is Test {
         // Users should still be able to withdraw
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(vault.balanceOf(user1));
-        
+
         vm.warp(block.timestamp + 1 days);
-        
+
         vm.prank(user1);
         vault.processWithdrawal(requestId);
 
@@ -207,10 +196,10 @@ contract AbunfiIntegrationTest is Test {
         uint256 totalWithdrawn = 0;
         for (uint256 i = 0; i < users.length; i++) {
             uint256 balanceBefore = mockUSDC.balanceOf(users[i]);
-            
+
             vm.prank(users[i]);
             vault.processWithdrawal(requestIds[i]);
-            
+
             uint256 withdrawn = mockUSDC.balanceOf(users[i]) - balanceBefore;
             totalWithdrawn += withdrawn;
         }
@@ -259,7 +248,7 @@ contract AbunfiIntegrationTest is Test {
         // Setup deposits across multiple strategies
         vm.prank(user1);
         vault.deposit(INITIAL_DEPOSIT);
-        
+
         vm.prank(user2);
         vault.deposit(INITIAL_DEPOSIT);
 
@@ -270,11 +259,11 @@ contract AbunfiIntegrationTest is Test {
 
         // All funds should be back in the vault
         assertGe(mockUSDC.balanceOf(address(vault)), totalAssetsBefore * 95 / 100, "Most funds should be recovered");
-        
+
         // Users should still be able to withdraw
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(vault.balanceOf(user1));
-        
+
         vm.warp(block.timestamp + 1 days);
         vm.prank(user1);
         vault.processWithdrawal(requestId);
@@ -286,7 +275,7 @@ contract AbunfiIntegrationTest is Test {
         // Setup initial state
         vm.prank(user1);
         vault.deposit(LARGE_DEPOSIT);
-        
+
         vm.prank(user2);
         vault.deposit(LARGE_DEPOSIT);
 
@@ -310,18 +299,18 @@ contract AbunfiIntegrationTest is Test {
 
     function test_Integration_ConcurrentOperations() public {
         // Simulate concurrent deposits, withdrawals, and strategy operations
-        
+
         // Initial deposits
         vm.prank(user1);
         vault.deposit(INITIAL_DEPOSIT);
-        
+
         vm.prank(user2);
         vault.deposit(INITIAL_DEPOSIT);
 
         // User1 requests withdrawal while user3 deposits
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(vault.balanceOf(user1) / 2);
-        
+
         vm.prank(user3);
         vault.deposit(INITIAL_DEPOSIT);
 
@@ -340,7 +329,7 @@ contract AbunfiIntegrationTest is Test {
         // User5 deposits while user2 requests withdrawal
         vm.prank(user5);
         vault.deposit(INITIAL_DEPOSIT);
-        
+
         vm.prank(user2);
         uint256 requestId2 = vault.requestWithdrawal(vault.balanceOf(user2));
 
@@ -355,7 +344,7 @@ contract AbunfiIntegrationTest is Test {
         // Setup users with different risk profiles
         vm.prank(user1);
         vault.deposit(INITIAL_DEPOSIT);
-        
+
         // Set user1 as conservative
         riskManager.setRiskProfileForUser(user1, RiskProfileManager.RiskLevel.LOW);
 
@@ -375,7 +364,7 @@ contract AbunfiIntegrationTest is Test {
 
     function test_Integration_WithdrawalWindowManagement() public {
         // Test withdrawal window management under various conditions
-        
+
         vm.prank(user1);
         vault.deposit(INITIAL_DEPOSIT);
 
@@ -407,9 +396,9 @@ contract AbunfiIntegrationTest is Test {
 
     function test_Integration_GasEfficiencyAtScale() public {
         // Test gas efficiency with many users and operations
-        
+
         uint256 gasStart = gasleft();
-        
+
         // Multiple deposits
         for (uint256 i = 1; i <= 5; i++) {
             address user = address(uint160(i));
@@ -419,12 +408,12 @@ contract AbunfiIntegrationTest is Test {
             vm.prank(user);
             vault.deposit(INITIAL_DEPOSIT);
         }
-        
+
         // Strategy rebalancing
         vault.rebalance();
-        
+
         uint256 gasUsed = gasStart - gasleft();
-        
+
         // Should be reasonably gas efficient even at scale
         assertLt(gasUsed, 2000000, "Operations should be gas efficient at scale");
     }
@@ -436,24 +425,24 @@ contract AbunfiIntegrationTest is Test {
 
         // Simulate system failure
         vault.pause();
-        
+
         // Emergency procedures
         vault.emergencyWithdraw();
-        
+
         // System recovery
         vault.unpause();
-        
+
         // Verify system can resume normal operations
         vm.prank(user2);
         vault.deposit(INITIAL_DEPOSIT);
-        
+
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(vault.balanceOf(user1) / 2);
-        
+
         vm.warp(block.timestamp + 1 days);
         vm.prank(user1);
         vault.processWithdrawal(requestId);
-        
+
         assertGt(vault.totalAssets(), 0, "System should recover and function normally");
     }
 }

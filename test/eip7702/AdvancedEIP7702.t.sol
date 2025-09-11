@@ -52,11 +52,7 @@ contract AdvancedEIP7702Test is Test {
     // ============ Smart Account Tests ============
 
     function test_SmartAccount_BasicExecution() public {
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         vm.prank(user);
         mockUSDC.approve(address(smartAccount), 100e6);
@@ -65,11 +61,7 @@ contract AdvancedEIP7702Test is Test {
         emit TransactionExecuted(user, keccak256(callData), true);
 
         vm.prank(user);
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            callData
-        );
+        smartAccount.execute(address(mockUSDC), 0, callData);
 
         // Transaction executed successfully if no revert
     }
@@ -99,45 +91,25 @@ contract AdvancedEIP7702Test is Test {
     }
 
     function test_SmartAccount_UnauthorizedExecution() public {
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         vm.prank(attacker);
         vm.expectRevert("Only owner");
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            callData
-        );
+        smartAccount.execute(address(mockUSDC), 0, callData);
     }
 
     function test_SmartAccount_GasLimitExceeded() public {
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         vm.prank(user);
         // Test gas limit by using a complex operation that might run out of gas
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            callData
-        );
+        smartAccount.execute(address(mockUSDC), 0, callData);
     }
 
     // ============ Paymaster Tests ============
 
     function test_Paymaster_SponsoredTransaction() public {
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         uint256 gasCost = 50000; // Estimated gas cost
 
@@ -156,11 +128,7 @@ contract AdvancedEIP7702Test is Test {
         vm.prank(sponsor);
         mockUSDC.transfer(address(0x7), INITIAL_BALANCE);
 
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         // Test insufficient balance by checking account state
         EIP7702Paymaster.AccountState memory state = paymaster.getAccountState(sponsor);
@@ -168,11 +136,7 @@ contract AdvancedEIP7702Test is Test {
     }
 
     function test_Paymaster_InvalidSponsor() public {
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         // Test invalid sponsor by checking account state
         EIP7702Paymaster.AccountState memory invalidState = paymaster.getAccountState(address(0));
@@ -211,35 +175,21 @@ contract AdvancedEIP7702Test is Test {
 
     function test_Security_ReentrancyProtection() public {
         // Test that contracts are protected against reentrancy attacks
-        bytes memory maliciousCallData = abi.encodeWithSelector(
-            this.maliciousReentrantCall.selector
-        );
+        bytes memory maliciousCallData = abi.encodeWithSelector(this.maliciousReentrantCall.selector);
 
         vm.prank(user);
         vm.expectRevert("ReentrancyGuard: reentrant call");
-        smartAccount.execute(
-            address(this),
-            0,
-            maliciousCallData
-        );
+        smartAccount.execute(address(this), 0, maliciousCallData);
     }
 
     function maliciousReentrantCall() external {
         // Attempt to call back into the smart account
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            abi.encodeWithSelector(mockUSDC.transfer.selector, attacker, 1000e6)
-        );
+        smartAccount.execute(address(mockUSDC), 0, abi.encodeWithSelector(mockUSDC.transfer.selector, attacker, 1000e6));
     }
 
     function test_Security_SignatureValidation() public {
         // Test that only properly signed transactions are executed
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         // Create invalid signature
         bytes memory invalidSig = abi.encodePacked(bytes32(0), bytes32(0), uint8(0));
@@ -248,27 +198,17 @@ contract AdvancedEIP7702Test is Test {
         // Test invalid signature by trying to execute as attacker (not owner)
         vm.prank(attacker);
         vm.expectRevert("Only owner");
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            callData
-        );
+        smartAccount.execute(address(mockUSDC), 0, callData);
     }
 
     function test_Security_GasGriefing() public {
         // Test protection against gas griefing attacks
-        bytes memory gasGriefingCallData = abi.encodeWithSelector(
-            this.gasGriefingFunction.selector
-        );
+        bytes memory gasGriefingCallData = abi.encodeWithSelector(this.gasGriefingFunction.selector);
 
         vm.prank(user);
         // Test gas griefing protection by calling expensive function
         vm.prank(user);
-        smartAccount.execute(
-            address(this),
-            0,
-            gasGriefingCallData
-        );
+        smartAccount.execute(address(this), 0, gasGriefingCallData);
     }
 
     function gasGriefingFunction() external pure {
@@ -281,60 +221,36 @@ contract AdvancedEIP7702Test is Test {
     // ============ Edge Cases ============
 
     function test_EdgeCase_ZeroValueTransfer() public {
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            0
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 0);
 
         vm.prank(user);
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            callData
-        );
+        smartAccount.execute(address(mockUSDC), 0, callData);
 
         // Transaction executed successfully if no revert
         assertTrue(true, "Zero value transfer should succeed");
     }
 
     function test_EdgeCase_SelfTransfer() public {
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            user,
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, user, 100e6);
 
         vm.prank(user);
         mockUSDC.approve(address(smartAccount), 100e6);
 
         vm.prank(user);
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            callData
-        );
+        smartAccount.execute(address(mockUSDC), 0, callData);
 
         // Transaction executed successfully if no revert
         assertTrue(true, "Self transfer should succeed");
     }
 
     function test_EdgeCase_MaxGasLimit() public {
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         vm.prank(user);
         mockUSDC.approve(address(smartAccount), 100e6);
 
         vm.prank(user);
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            callData
-        );
+        smartAccount.execute(address(mockUSDC), 0, callData);
 
         // Transaction executed successfully if no revert
         assertTrue(true, "Max gas limit should work");
@@ -344,11 +260,7 @@ contract AdvancedEIP7702Test is Test {
 
     function test_Integration_BasicFlow() public {
         // Test basic integration between components
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         // User approves smart account
         vm.prank(user);
@@ -356,11 +268,7 @@ contract AdvancedEIP7702Test is Test {
 
         // Execute transaction through smart account
         vm.prank(user);
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            callData
-        );
+        smartAccount.execute(address(mockUSDC), 0, callData);
 
         // Transaction executed successfully if no revert
         assertTrue(true, "Transaction should succeed");
@@ -393,11 +301,7 @@ contract AdvancedEIP7702Test is Test {
         uint256 initialPaymasterBalance = mockUSDC.balanceOf(address(paymaster));
         uint256 initialSponsorBalance = mockUSDC.balanceOf(sponsor);
 
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         uint256 estimatedGasCost = 50000;
 
@@ -424,11 +328,7 @@ contract AdvancedEIP7702Test is Test {
 
         vm.prank(user);
         vm.expectRevert();
-        smartAccount.execute(
-            address(mockUSDC),
-            0,
-            invalidCallData
-        );
+        smartAccount.execute(address(mockUSDC), 0, invalidCallData);
 
         // Transaction should revert for invalid call data
         assertTrue(true, "Invalid transaction should fail");
@@ -445,11 +345,7 @@ contract AdvancedEIP7702Test is Test {
         vm.prank(sponsor);
         mockUSDC.transfer(address(0x10), INITIAL_BALANCE);
 
-        bytes memory callData = abi.encodeWithSelector(
-            mockUSDC.transfer.selector,
-            address(0x5),
-            100e6
-        );
+        bytes memory callData = abi.encodeWithSelector(mockUSDC.transfer.selector, address(0x5), 100e6);
 
         // Test sponsor failover by checking balances
         assertEq(mockUSDC.balanceOf(sponsor), 0, "Primary sponsor should be drained");

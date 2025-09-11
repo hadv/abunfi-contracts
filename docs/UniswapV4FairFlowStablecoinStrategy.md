@@ -2,7 +2,7 @@
 
 ## Overview
 
-The UniswapV4FairFlowStablecoinStrategy is an advanced liquidity providing strategy specifically designed for stablecoin pairs in Uniswap V4. It leverages the new features of Uniswap V4, including hooks, concentrated liquidity, dynamic fees, and flash accounting to maximize yield while minimizing impermanent loss for stablecoin liquidity providers.
+The UniswapV4FairFlowStablecoinStrategy is an advanced liquidity providing strategy specifically designed for stablecoin pairs in Uniswap V4. It leverages Kyber's FairFlow hook technology along with the new features of Uniswap V4, including hooks, concentrated liquidity, dynamic fees, and flash accounting to maximize yield while minimizing impermanent loss and providing MEV protection for stablecoin liquidity providers.
 
 ## Key Features
 
@@ -11,8 +11,10 @@ The UniswapV4FairFlowStablecoinStrategy is an advanced liquidity providing strat
 - **Dynamic Range Adjustment**: Adapts range width based on market volatility and conditions
 - **Automated Rebalancing**: Triggers rebalancing when price moves outside optimal range
 
-### 🔧 Hooks Integration
-- **Custom Hook Logic**: Implements sophisticated hooks for automated management
+### 🔧 Kyber FairFlow Hook Integration
+- **MEV Protection**: Advanced protection against Maximum Extractable Value attacks using Kyber's FairFlow technology
+- **Fair Pricing Mechanism**: Ensures optimal execution prices through sophisticated algorithms
+- **Custom Hook Logic**: Implements Kyber's FairFlow hooks for automated management
 - **Pre/Post Transaction Logic**: Executes optimizations before and after major operations
 - **Gas Optimization**: Leverages V4's singleton architecture for reduced gas costs
 

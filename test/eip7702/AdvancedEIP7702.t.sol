@@ -91,6 +91,9 @@ contract AdvancedEIP7702Test is Test {
             nonce: 999, // Wrong nonce
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
@@ -115,6 +118,9 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
@@ -126,6 +132,9 @@ contract AdvancedEIP7702Test is Test {
             nonce: 1,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
@@ -155,14 +164,14 @@ contract AdvancedEIP7702Test is Test {
             minimumVerificationLevel: 1,
             isActive: true
         });
-        paymaster.setUserPolicy(user1, restrictivePolicy);
+        paymaster.setAccountPolicy(user1, restrictivePolicy);
 
         // Create user operation context
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
             account: user1,
-            userOpHash: keccak256("test"),
             maxFeePerGas: 1e9,
-            maxPriorityFeePerGas: 1e8
+            gasLimit: 300000,
+            signature: ""
         });
 
         AbunfiSmartAccount.UserOperation memory userOp = AbunfiSmartAccount.UserOperation({
@@ -172,6 +181,9 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
@@ -181,10 +193,10 @@ contract AdvancedEIP7702Test is Test {
 
         // Simulate gas usage to exceed daily limit
         vm.prank(address(bundler));
-        paymaster.sponsorUserOperation(userOp, context, 0.008 ether);
+        paymaster.executeSponsorship(userOp, context, 400000); // High gas usage
 
         // Second operation should fail due to daily limit
-        context.userOpHash = keccak256("test2");
+        // Update context for second operation
         userOp.nonce = 1;
         (canSponsor,) = paymaster.validateUserOperation(userOp, context);
         assertFalse(canSponsor);
@@ -207,9 +219,9 @@ contract AdvancedEIP7702Test is Test {
         // Non-whitelisted user should be rejected
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
             account: user1,
-            userOpHash: keccak256("test"),
             maxFeePerGas: 1e9,
-            maxPriorityFeePerGas: 1e8
+            gasLimit: 300000,
+            signature: ""
         });
 
         AbunfiSmartAccount.UserOperation memory userOp = AbunfiSmartAccount.UserOperation({
@@ -219,6 +231,9 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
@@ -227,7 +242,7 @@ contract AdvancedEIP7702Test is Test {
 
         // Whitelist user and try again
         vm.prank(owner);
-        paymaster.setWhitelistedAccount(user1, true);
+        paymaster.setAccountWhitelist(user1, true);
 
         (canSponsor,) = paymaster.validateUserOperation(userOp, context);
         assertTrue(canSponsor);
@@ -240,9 +255,9 @@ contract AdvancedEIP7702Test is Test {
 
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
             account: user1,
-            userOpHash: keccak256("test"),
             maxFeePerGas: 1e9,
-            maxPriorityFeePerGas: 1e8
+            gasLimit: 300000,
+            signature: ""
         });
 
         AbunfiSmartAccount.UserOperation memory userOp = AbunfiSmartAccount.UserOperation({
@@ -252,6 +267,9 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
@@ -315,6 +333,9 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
@@ -336,14 +357,17 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1000e9, // Very high gas price
             maxPriorityFeePerGas: 100e9,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
             account: user1,
-            userOpHash: keccak256("test"),
             maxFeePerGas: 1000e9,
-            maxPriorityFeePerGas: 100e9
+            gasLimit: 300000,
+            signature: ""
         });
 
         // Should be rejected by paymaster due to per-tx gas limit
@@ -370,14 +394,17 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
             account: address(smartAccount),
-            userOpHash: keccak256("test"),
             maxFeePerGas: 1e9,
-            maxPriorityFeePerGas: 1e8
+            gasLimit: 300000,
+            signature: ""
         });
 
         // Execute through bundler
@@ -430,6 +457,9 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
@@ -440,22 +470,25 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
         EIP7702Paymaster.UserOperationContext[] memory contexts = new EIP7702Paymaster.UserOperationContext[](2);
         contexts[0] = EIP7702Paymaster.UserOperationContext({
             account: address(smartAccount),
-            userOpHash: keccak256("test1"),
             maxFeePerGas: 1e9,
-            maxPriorityFeePerGas: 1e8
+            gasLimit: 300000,
+            signature: ""
         });
 
         contexts[1] = EIP7702Paymaster.UserOperationContext({
             account: address(smartAccount2),
-            userOpHash: keccak256("test2"),
             maxFeePerGas: 1e9,
-            maxPriorityFeePerGas: 1e8
+            gasLimit: 300000,
+            signature: ""
         });
 
         uint256 initialOwnerBalance = mockToken.balanceOf(owner);
@@ -471,7 +504,7 @@ contract AdvancedEIP7702Test is Test {
     function test_PaymasterInsufficientFunds() public {
         // Drain paymaster funds
         vm.prank(owner);
-        paymaster.withdrawFunds(payable(owner), address(paymaster).balance);
+        paymaster.withdrawFunds(address(paymaster).balance);
 
         // Initialize smart account
         vm.prank(user1);
@@ -485,19 +518,22 @@ contract AdvancedEIP7702Test is Test {
             nonce: 0,
             maxFeePerGas: 1e9,
             maxPriorityFeePerGas: 1e8,
+            gasLimit: 300000,
+            paymaster: address(paymaster),
+            paymasterData: "",
             signature: ""
         });
 
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
             account: address(smartAccount),
-            userOpHash: keccak256("test"),
             maxFeePerGas: 1e9,
-            maxPriorityFeePerGas: 1e8
+            gasLimit: 300000,
+            signature: ""
         });
 
         // Should fail due to insufficient paymaster balance
         vm.expectRevert("Insufficient paymaster balance");
         vm.prank(address(bundler));
-        paymaster.sponsorUserOperation(userOp, context, 0.01 ether);
+        paymaster.executeSponsorship(userOp, context, 500000); // High gas usage
     }
 }

@@ -34,7 +34,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
         // Deploy risk manager first
         riskManager = new RiskProfileManager();
 
-        // Deploy withdrawal manager placeholder (will be updated later)
+        // Deploy withdrawal manager with temporary vault address
         withdrawalManager = new WithdrawalManager(
             address(0x1), // temporary vault address
             address(mockUSDC) // asset address
@@ -57,9 +57,14 @@ contract AbunfiVaultNewFunctionsTest is Test {
         // Deploy mock strategy
         mockStrategy = new MockStrategy(address(mockUSDC), "Mock Strategy", 500); // 5% APY
 
-        // Set up vault
+        // Set up vault - ensure we're the owner
+        require(vault.owner() == address(this), "Test contract should be vault owner");
+
+        // Update risk managers
         vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
-        vault.addStrategy(address(mockStrategy), 10000); // 100% weight
+
+        // Add strategy using the single parameter version
+        vault.addStrategy(address(mockStrategy));
 
         // Mint tokens to users
         mockUSDC.mint(user1, 1000e6);
@@ -89,13 +94,14 @@ contract AbunfiVaultNewFunctionsTest is Test {
         uint256 userShares = vault.balanceOf(user1);
         uint256 withdrawShares = userShares / 2;
 
-        vm.expectEmit(true, true, false, true);
-        emit WithdrawalRequested(user1, 1, withdrawShares, withdrawShares); // Assuming 1:1 ratio initially
+        // The event is emitted from the WithdrawalManager, not the vault
+        vm.expectEmit(true, true, false, true, address(withdrawalManager));
+        emit WithdrawalRequested(user1, 0, withdrawShares, withdrawShares); // Request ID starts from 0
 
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(withdrawShares);
 
-        assertEq(requestId, 1, "Request ID should be 1");
+        assertEq(requestId, 0, "Request ID should be 0 (first request)");
         assertEq(vault.balanceOf(user1), userShares - withdrawShares, "User shares should be reduced");
     }
 

@@ -33,14 +33,14 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
     function setUp() public {
         // Deploy mock USDC
         mockUSDC = new MockERC20("Mock USDC", "USDC", 6);
-        
+
         // Deploy risk manager first
         riskManager = new RiskProfileManager();
 
         // Deploy withdrawal manager placeholder (will be updated later)
         withdrawalManager = new WithdrawalManager(
             address(0x1), // temporary vault address
-            address(riskManager)
+            address(mockUSDC) // asset address
         );
 
         // Deploy vault with correct constructor
@@ -54,7 +54,7 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
         // Deploy new withdrawal manager with correct vault address
         withdrawalManager = new WithdrawalManager(
             address(vault),
-            address(riskManager)
+            address(mockUSDC) // asset address
         );
 
         // Deploy mock strategy
@@ -160,11 +160,11 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
         RiskProfileManager newRiskManager = new RiskProfileManager();
         WithdrawalManager newWithdrawalManager = new WithdrawalManager(
             address(vault),
-            address(newRiskManager)
+            address(mockUSDC) // asset address
         );
 
         vault.updateRiskManagers(address(newRiskManager), address(newWithdrawalManager));
-        
+
         // Verify the update worked by checking the new managers are set
         assertTrue(address(vault.riskProfileManager()) == address(newRiskManager), "Risk manager should be updated");
         assertTrue(address(vault.withdrawalManager()) == address(newWithdrawalManager), "Withdrawal manager should be updated");

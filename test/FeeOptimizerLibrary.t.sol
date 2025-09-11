@@ -5,8 +5,6 @@ import "forge-std/Test.sol";
 import "../src/libraries/FeeOptimizer.sol";
 
 contract FeeOptimizerLibraryTest is Test {
-    using FeeOptimizer for FeeOptimizer.FeeConfig;
-
     FeeOptimizer.FeeConfig public config;
     
     uint256 public constant BASE_FEE = 3000; // 0.3%
@@ -19,296 +17,262 @@ contract FeeOptimizerLibraryTest is Test {
 
     function setUp() public {
         config = FeeOptimizer.FeeConfig({
-            baseFee: BASE_FEE,
-            minFee: MIN_FEE,
-            maxFee: MAX_FEE,
-            targetUtilization: TARGET_UTILIZATION,
-            adjustmentFactor: 1000, // 10%
-            lastUpdateTime: block.timestamp,
-            currentFee: BASE_FEE
+            baseFee: uint24(BASE_FEE),
+            volatilityMultiplier: uint24(1000), // 10%
+            volumeThreshold: 1000000e6, // $1M volume threshold
+            updateFrequency: 3600, // 1 hour
+            dynamicEnabled: true
         });
     }
 
     // ============ Fee Calculation Tests ============
 
     function test_CalculateOptimalFee_AtTarget() public {
-        uint256 currentUtilization = TARGET_UTILIZATION;
-        uint256 poolVolume = 1000000e6;
-        uint256 marketVolatility = 500; // 5%
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 50, // 0.5% - low volatility
+            volume24h: 1000000e6,
+            spread: 10, // 0.1%
+            liquidity: 2000000e6, // $2M
+            timestamp: block.timestamp
+        });
 
-        uint256 optimalFee = config.calculateOptimalFee(
-            currentUtilization,
-            poolVolume,
-            marketVolatility
-        );
+        uint24 optimalFee = FeeOptimizer.calculateOptimalFee(conditions, config);
 
-        assertEq(optimalFee, BASE_FEE, "Fee should remain at base when at target utilization");
-    }
-
-    function test_CalculateOptimalFee_HighUtilization() public {
-        uint256 highUtilization = 9500; // 95%
-        uint256 poolVolume = 1000000e6;
-        uint256 marketVolatility = 500;
-
-        uint256 optimalFee = config.calculateOptimalFee(
-            highUtilization,
-            poolVolume,
-            marketVolatility
-        );
-
-        assertGt(optimalFee, BASE_FEE, "Fee should increase with high utilization");
-        assertLe(optimalFee, MAX_FEE, "Fee should not exceed maximum");
-    }
-
-    function test_CalculateOptimalFee_LowUtilization() public {
-        uint256 lowUtilization = 2000; // 20%
-        uint256 poolVolume = 1000000e6;
-        uint256 marketVolatility = 500;
-
-        uint256 optimalFee = config.calculateOptimalFee(
-            lowUtilization,
-            poolVolume,
-            marketVolatility
-        );
-
-        assertLt(optimalFee, BASE_FEE, "Fee should decrease with low utilization");
-        assertGe(optimalFee, MIN_FEE, "Fee should not go below minimum");
+        assertEq(optimalFee, BASE_FEE, "Fee should remain at base for normal conditions");
     }
 
     function test_CalculateOptimalFee_HighVolatility() public {
-        uint256 currentUtilization = TARGET_UTILIZATION;
-        uint256 poolVolume = 1000000e6;
-        uint256 highVolatility = 2000; // 20%
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 150, // 1.5% - high volatility
+            volume24h: 500000e6,
+            spread: 30, // 0.3%
+            liquidity: 1000000e6, // $1M
+            timestamp: block.timestamp
+        });
 
-        uint256 optimalFee = config.calculateOptimalFee(
-            currentUtilization,
-            poolVolume,
-            highVolatility
-        );
+        uint24 optimalFee = FeeOptimizer.calculateOptimalFee(conditions, config);
 
         assertGt(optimalFee, BASE_FEE, "Fee should increase with high volatility");
     }
 
-    function test_CalculateOptimalFee_LowVolume() public {
-        uint256 currentUtilization = TARGET_UTILIZATION;
-        uint256 lowVolume = 10000e6; // Low volume
-        uint256 marketVolatility = 500;
+    function test_CalculateOptimalFee_LowVolatility() public {
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 5, // 0.05% - very low volatility
+            volume24h: 2000000e6, // High volume
+            spread: 5, // 0.05%
+            liquidity: 3000000e6, // $3M
+            timestamp: block.timestamp
+        });
 
-        uint256 optimalFee = config.calculateOptimalFee(
-            currentUtilization,
-            lowVolume,
-            marketVolatility
-        );
+        uint24 optimalFee = FeeOptimizer.calculateOptimalFee(conditions, config);
 
-        assertGt(optimalFee, BASE_FEE, "Fee should increase with low volume to incentivize liquidity");
+        assertLt(optimalFee, BASE_FEE, "Fee should decrease with low volatility and high volume");
+    }
+
+    function test_CalculateOptimalFee_LowLiquidity() public {
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 50, // 0.5%
+            volume24h: 1000000e6,
+            spread: 20, // 0.2%
+            liquidity: 500000e6, // $500k - low liquidity
+            timestamp: block.timestamp
+        });
+
+        uint24 optimalFee = FeeOptimizer.calculateOptimalFee(conditions, config);
+
+        assertGt(optimalFee, BASE_FEE, "Fee should increase with low liquidity");
+    }
+
+    function test_CalculateOptimalFee_DisabledDynamic() public {
+        config.dynamicEnabled = false;
+
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 200, // 2% - very high volatility
+            volume24h: 10000e6, // Low volume
+            spread: 100, // 1%
+            liquidity: 100000e6, // $100k - very low liquidity
+            timestamp: block.timestamp
+        });
+
+        uint24 optimalFee = FeeOptimizer.calculateOptimalFee(conditions, config);
+
+        assertEq(optimalFee, BASE_FEE, "Fee should remain at base when dynamic pricing is disabled");
+    }
+
+    // ============ Fee Revenue Tests ============
+
+    function test_CalculateFeeRevenue() public {
+        uint256 volume = 1000000e6; // $1M volume
+        uint24 feeRate = 3000; // 0.3%
+
+        uint256 revenue = FeeOptimizer.calculateFeeRevenue(volume, feeRate);
+
+        assertEq(revenue, 3000e6, "Fee revenue should be 0.3% of volume");
+    }
+
+    function test_EstimateAPY() public {
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 50,
+            volume24h: 1000000e6,
+            spread: 10,
+            liquidity: 2000000e6,
+            timestamp: block.timestamp
+        });
+
+        uint24 feeRate = 3000; // 0.3%
+        uint256 liquidityShare = 1000; // 10% of pool
+
+        uint256 apy = FeeOptimizer.estimateAPY(conditions, feeRate, liquidityShare);
+
+        assertGt(apy, 0, "APY should be positive");
+    }
+
+    // ============ Recommended Config Tests ============
+
+    function test_GetRecommendedFeeConfig_MajorPairs() public {
+        FeeOptimizer.FeeConfig memory majorConfig = FeeOptimizer.getRecommendedFeeConfig(0);
+
+        assertEq(majorConfig.baseFee, 100, "Major pairs should have 0.01% base fee");
+        assertTrue(majorConfig.dynamicEnabled, "Dynamic fees should be enabled for major pairs");
+    }
+
+    function test_GetRecommendedFeeConfig_MinorPairs() public {
+        FeeOptimizer.FeeConfig memory minorConfig = FeeOptimizer.getRecommendedFeeConfig(1);
+
+        assertEq(minorConfig.baseFee, 300, "Minor pairs should have 0.03% base fee");
+        assertTrue(minorConfig.dynamicEnabled, "Dynamic fees should be enabled for minor pairs");
+    }
+
+    function test_GetRecommendedFeeConfig_ExoticPairs() public {
+        FeeOptimizer.FeeConfig memory exoticConfig = FeeOptimizer.getRecommendedFeeConfig(2);
+
+        assertEq(exoticConfig.baseFee, 1000, "Exotic pairs should have 0.1% base fee");
+        assertTrue(exoticConfig.dynamicEnabled, "Dynamic fees should be enabled for exotic pairs");
+    }
+
+    function test_CalculateImpermanentLoss() public {
+        uint256 initialRatio = 1e18; // 1:1 ratio
+        uint256 newRatio = 1.1e18; // 1.1:1 ratio (10% price change)
+
+        uint256 il = FeeOptimizer.calculateImpermanentLoss(newRatio, initialRatio);
+
+        assertGt(il, 0, "Impermanent loss should be positive for price deviation");
+        assertLt(il, 1000, "IL should be less than 10% for small price changes");
     }
 
     // ============ Fee Update Logic Tests ============
 
-    function test_UpdateFee_SignificantChange() public {
-        uint256 newOptimalFee = BASE_FEE * 150 / 100; // 50% increase
-        
-        vm.expectEmit(true, true, false, true);
-        emit FeeUpdated(BASE_FEE, newOptimalFee, TARGET_UTILIZATION);
+    function test_NeedsFeeUpdate_RecentUpdate() public {
+        uint256 lastUpdate = block.timestamp - 30 minutes;
+        uint256 updateFrequency = 1 hours;
 
-        bool updated = config.updateFee(newOptimalFee, TARGET_UTILIZATION);
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 50,
+            volume24h: 1000000e6,
+            spread: 10,
+            liquidity: 2000000e6,
+            timestamp: block.timestamp
+        });
 
-        assertTrue(updated, "Fee should be updated for significant change");
-        assertEq(config.currentFee, newOptimalFee, "Current fee should be updated");
+        uint24 currentFee = uint24(BASE_FEE);
+
+        bool needsUpdate = FeeOptimizer.needsFeeUpdate(
+            lastUpdate,
+            updateFrequency,
+            conditions,
+            currentFee,
+            config
+        );
+
+        assertFalse(needsUpdate, "Should not update fee too frequently");
     }
 
-    function test_UpdateFee_MinimalChange() public {
-        uint256 newOptimalFee = BASE_FEE * 101 / 100; // 1% increase
-        
-        bool updated = config.updateFee(newOptimalFee, TARGET_UTILIZATION);
+    function test_NeedsFeeUpdate_StaleUpdate() public {
+        uint256 lastUpdate = block.timestamp - 2 hours;
+        uint256 updateFrequency = 1 hours;
 
-        assertFalse(updated, "Fee should not be updated for minimal change");
-        assertEq(config.currentFee, BASE_FEE, "Current fee should remain unchanged");
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 150, // High volatility
+            volume24h: 500000e6,
+            spread: 30,
+            liquidity: 1000000e6,
+            timestamp: block.timestamp
+        });
+
+        uint24 currentFee = uint24(BASE_FEE);
+
+        bool needsUpdate = FeeOptimizer.needsFeeUpdate(
+            lastUpdate,
+            updateFrequency,
+            conditions,
+            currentFee,
+            config
+        );
+
+        assertTrue(needsUpdate, "Should update fee after sufficient time with market changes");
     }
 
-    function test_UpdateFee_ExceedsMaximum() public {
-        uint256 excessiveFee = MAX_FEE + 1000;
-        
-        bool updated = config.updateFee(excessiveFee, TARGET_UTILIZATION);
+    // ============ Profitability Tests ============
 
-        assertTrue(updated, "Fee should be updated but capped");
-        assertEq(config.currentFee, MAX_FEE, "Current fee should be capped at maximum");
+    function test_IsUpdateProfitable_HighGasCost() public {
+        uint256 feeIncrease = 100e6; // $100 additional revenue
+        uint256 gasPrice = 50 gwei;
+        uint256 gasUsed = 100000; // 100k gas
+
+        bool profitable = FeeOptimizer.isUpdateProfitable(feeIncrease, gasPrice, gasUsed);
+
+        assertTrue(profitable, "Update should be profitable when revenue exceeds gas cost");
     }
 
-    function test_UpdateFee_BelowMinimum() public {
-        uint256 tooLowFee = MIN_FEE - 100;
-        
-        bool updated = config.updateFee(tooLowFee, TARGET_UTILIZATION);
+    function test_IsUpdateProfitable_LowGasCost() public {
+        uint256 feeIncrease = 1e6; // $1 additional revenue
+        uint256 gasPrice = 100 gwei;
+        uint256 gasUsed = 100000; // 100k gas (expensive)
 
-        assertTrue(updated, "Fee should be updated but floored");
-        assertEq(config.currentFee, MIN_FEE, "Current fee should be floored at minimum");
-    }
+        bool profitable = FeeOptimizer.isUpdateProfitable(feeIncrease, gasPrice, gasUsed);
 
-    // ============ Utilization Impact Tests ============
-
-    function test_UtilizationImpact_LinearRelationship() public {
-        uint256 poolVolume = 1000000e6;
-        uint256 marketVolatility = 500;
-
-        // Test various utilization levels
-        uint256[] memory utilizations = new uint256[](5);
-        utilizations[0] = 2000; // 20%
-        utilizations[1] = 4000; // 40%
-        utilizations[2] = 6000; // 60%
-        utilizations[3] = 8000; // 80%
-        utilizations[4] = 9500; // 95%
-
-        uint256 previousFee = 0;
-        for (uint256 i = 0; i < utilizations.length; i++) {
-            uint256 fee = config.calculateOptimalFee(
-                utilizations[i],
-                poolVolume,
-                marketVolatility
-            );
-
-            if (i > 0) {
-                assertGe(fee, previousFee, "Fee should increase with utilization");
-            }
-            previousFee = fee;
-        }
-    }
-
-    function test_UtilizationImpact_ExtremeValues() public {
-        uint256 poolVolume = 1000000e6;
-        uint256 marketVolatility = 500;
-
-        // Test 0% utilization
-        uint256 zeroUtilizationFee = config.calculateOptimalFee(0, poolVolume, marketVolatility);
-        assertEq(zeroUtilizationFee, MIN_FEE, "Zero utilization should result in minimum fee");
-
-        // Test 100% utilization
-        uint256 fullUtilizationFee = config.calculateOptimalFee(10000, poolVolume, marketVolatility);
-        assertEq(fullUtilizationFee, MAX_FEE, "Full utilization should result in maximum fee");
-    }
-
-    // ============ Market Condition Tests ============
-
-    function test_MarketConditions_VolatilityImpact() public {
-        uint256 currentUtilization = TARGET_UTILIZATION;
-        uint256 poolVolume = 1000000e6;
-
-        uint256 lowVolFee = config.calculateOptimalFee(currentUtilization, poolVolume, 100); // 1%
-        uint256 medVolFee = config.calculateOptimalFee(currentUtilization, poolVolume, 500); // 5%
-        uint256 highVolFee = config.calculateOptimalFee(currentUtilization, poolVolume, 1500); // 15%
-
-        assertLt(lowVolFee, medVolFee, "Fee should increase with volatility");
-        assertLt(medVolFee, highVolFee, "Fee should continue increasing with higher volatility");
-    }
-
-    function test_MarketConditions_VolumeImpact() public {
-        uint256 currentUtilization = TARGET_UTILIZATION;
-        uint256 marketVolatility = 500;
-
-        uint256 lowVolumeFee = config.calculateOptimalFee(currentUtilization, 100000e6, marketVolatility);
-        uint256 medVolumeFee = config.calculateOptimalFee(currentUtilization, 1000000e6, marketVolatility);
-        uint256 highVolumeFee = config.calculateOptimalFee(currentUtilization, 10000000e6, marketVolatility);
-
-        assertGt(lowVolumeFee, medVolumeFee, "Fee should decrease with higher volume");
-        assertGe(medVolumeFee, highVolumeFee, "Fee should continue decreasing with very high volume");
-    }
-
-    // ============ Time-based Adjustments ============
-
-    function test_TimeBasedAdjustment_RecentUpdate() public {
-        // Set last update to very recent
-        config.lastUpdateTime = block.timestamp - 1 minutes;
-
-        uint256 newOptimalFee = BASE_FEE * 200 / 100; // 100% increase
-        bool shouldUpdate = config.shouldUpdateFee(newOptimalFee);
-
-        assertFalse(shouldUpdate, "Should not update fee too frequently");
-    }
-
-    function test_TimeBasedAdjustment_StaleUpdate() public {
-        // Set last update to long ago
-        config.lastUpdateTime = block.timestamp - 1 hours;
-
-        uint256 newOptimalFee = BASE_FEE * 110 / 100; // 10% increase
-        bool shouldUpdate = config.shouldUpdateFee(newOptimalFee);
-
-        assertTrue(shouldUpdate, "Should update fee after sufficient time");
+        assertFalse(profitable, "Update should not be profitable when gas cost exceeds revenue");
     }
 
     // ============ Edge Cases ============
 
     function test_EdgeCase_ZeroVolume() public {
-        uint256 fee = config.calculateOptimalFee(TARGET_UTILIZATION, 0, 500);
-        
-        assertEq(fee, MAX_FEE, "Zero volume should result in maximum fee");
-    }
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 50,
+            volume24h: 0, // Zero volume
+            spread: 10,
+            liquidity: 1000000e6,
+            timestamp: block.timestamp
+        });
 
-    function test_EdgeCase_ZeroVolatility() public {
-        uint256 fee = config.calculateOptimalFee(TARGET_UTILIZATION, 1000000e6, 0);
-        
-        assertLe(fee, BASE_FEE, "Zero volatility should not increase fee above base");
+        uint24 fee = FeeOptimizer.calculateOptimalFee(conditions, config);
+
+        assertEq(fee, BASE_FEE, "Zero volume should return base fee");
     }
 
     function test_EdgeCase_ExtremeVolatility() public {
-        uint256 extremeVolatility = 10000; // 100%
-        uint256 fee = config.calculateOptimalFee(TARGET_UTILIZATION, 1000000e6, extremeVolatility);
-        
-        assertEq(fee, MAX_FEE, "Extreme volatility should result in maximum fee");
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 1000, // 10% - extreme volatility
+            volume24h: 1000000e6,
+            spread: 100, // 1%
+            liquidity: 500000e6,
+            timestamp: block.timestamp
+        });
+
+        uint24 fee = FeeOptimizer.calculateOptimalFee(conditions, config);
+
+        assertGt(fee, BASE_FEE, "Extreme volatility should increase fee");
     }
 
-    function test_EdgeCase_InvalidUtilization() public {
-        vm.expectRevert("Invalid utilization");
-        config.calculateOptimalFee(10001, 1000000e6, 500); // > 100%
-    }
+    function test_CalculateFeeRevenue_ZeroVolume() public {
+        uint256 revenue = FeeOptimizer.calculateFeeRevenue(0, uint24(BASE_FEE));
 
-    // ============ Fee Smoothing Tests ============
-
-    function test_FeeSmoothing_GradualAdjustment() public {
-        uint256 targetFee = BASE_FEE * 200 / 100; // 100% increase
-        
-        // First update should be partial
-        config.updateFee(targetFee, TARGET_UTILIZATION);
-        uint256 firstUpdate = config.currentFee;
-        
-        assertGt(firstUpdate, BASE_FEE, "Fee should increase");
-        assertLt(firstUpdate, targetFee, "Fee should not jump to target immediately");
-
-        // Advance time and update again
-        vm.warp(block.timestamp + 1 hours);
-        config.updateFee(targetFee, TARGET_UTILIZATION);
-        uint256 secondUpdate = config.currentFee;
-        
-        assertGt(secondUpdate, firstUpdate, "Fee should continue adjusting toward target");
-    }
-
-    function test_FeeSmoothing_MaxAdjustmentPerUpdate() public {
-        uint256 extremeTargetFee = MAX_FEE;
-        
-        config.updateFee(extremeTargetFee, TARGET_UTILIZATION);
-        
-        uint256 maxIncrease = BASE_FEE * (10000 + config.adjustmentFactor) / 10000;
-        assertLe(config.currentFee, maxIncrease, "Fee adjustment should be limited per update");
-    }
-
-    // ============ Revenue Estimation Tests ============
-
-    function test_EstimateRevenue_BaseFee() public {
-        uint256 volume = 1000000e6;
-        uint256 expectedRevenue = volume * BASE_FEE / 1000000; // Fee in basis points
-
-        uint256 actualRevenue = config.estimateRevenue(volume, BASE_FEE);
-        
-        assertEq(actualRevenue, expectedRevenue, "Revenue calculation should be accurate");
-    }
-
-    function test_EstimateRevenue_ZeroVolume() public {
-        uint256 revenue = config.estimateRevenue(0, BASE_FEE);
-        
         assertEq(revenue, 0, "Zero volume should result in zero revenue");
     }
 
-    function test_EstimateRevenue_ZeroFee() public {
-        uint256 revenue = config.estimateRevenue(1000000e6, 0);
-        
+    function test_CalculateFeeRevenue_ZeroFee() public {
+        uint256 revenue = FeeOptimizer.calculateFeeRevenue(1000000e6, 0);
+
         assertEq(revenue, 0, "Zero fee should result in zero revenue");
     }
 
@@ -316,24 +280,18 @@ contract FeeOptimizerLibraryTest is Test {
 
     function test_Performance_OptimalFeeCalculation() public {
         uint256 gasStart = gasleft();
-        
-        config.calculateOptimalFee(TARGET_UTILIZATION, 1000000e6, 500);
-        
+
+        FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
+            volatility: 50,
+            volume24h: 1000000e6,
+            spread: 10,
+            liquidity: 2000000e6,
+            timestamp: block.timestamp
+        });
+
+        FeeOptimizer.calculateOptimalFee(conditions, config);
+
         uint256 gasUsed = gasStart - gasleft();
         assertLt(gasUsed, 50000, "Fee calculation should be gas efficient");
-    }
-
-    function test_Performance_BatchFeeUpdates() public {
-        uint256 gasStart = gasleft();
-        
-        // Simulate multiple fee updates
-        for (uint256 i = 0; i < 10; i++) {
-            uint256 utilization = 5000 + (i * 500); // 50% to 95%
-            uint256 fee = config.calculateOptimalFee(utilization, 1000000e6, 500);
-            config.updateFee(fee, utilization);
-        }
-        
-        uint256 gasUsed = gasStart - gasleft();
-        assertLt(gasUsed, 500000, "Batch updates should be reasonably gas efficient");
     }
 }

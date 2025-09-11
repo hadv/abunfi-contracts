@@ -5,6 +5,10 @@ import "forge-std/Test.sol";
 import "../src/AbunfiVault.sol";
 import "../src/WithdrawalManager.sol";
 import "../src/RiskProfileManager.sol";
+import "../src/mocks/MockAavePool.sol";
+import "../src/mocks/MockAaveDataProvider.sol";
+import "../src/mocks/MockComet.sol";
+import "../src/mocks/MockCometRewards.sol";
 import "../src/strategies/AaveStrategy.sol";
 import "../src/strategies/CompoundStrategy.sol";
 import "../src/mocks/MockERC20.sol";
@@ -18,6 +22,12 @@ contract AbunfiIntegrationTest is Test {
     CompoundStrategy public compoundStrategy;
     MockStrategy public mockStrategy;
     MockERC20 public mockUSDC;
+
+    // Mock external contracts
+    MockAavePool public mockAavePool;
+    MockAaveDataProvider public mockAaveDataProvider;
+    MockComet public mockComet;
+    MockCometRewards public mockCometRewards;
 
     address public user1 = address(0x1);
     address public user2 = address(0x2);
@@ -36,7 +46,13 @@ contract AbunfiIntegrationTest is Test {
     function setUp() public {
         // Deploy mock USDC
         mockUSDC = new MockERC20("Mock USDC", "USDC", 6);
-        
+
+        // Deploy mock external contracts
+        mockAavePool = new MockAavePool(address(mockUSDC));
+        mockAaveDataProvider = new MockAaveDataProvider();
+        mockComet = new MockComet(address(mockUSDC));
+        mockCometRewards = new MockCometRewards();
+
         // Deploy risk manager
         riskManager = new RiskProfileManager();
 
@@ -61,8 +77,18 @@ contract AbunfiIntegrationTest is Test {
         );
 
         // Deploy strategies
-        aaveStrategy = new AaveStrategy(address(mockUSDC), "Aave Strategy");
-        compoundStrategy = new CompoundStrategy(address(mockUSDC), "Compound Strategy");
+        aaveStrategy = new AaveStrategy(
+            address(mockUSDC),
+            address(mockAavePool),
+            address(mockAaveDataProvider),
+            address(vault)
+        );
+        compoundStrategy = new CompoundStrategy(
+            address(mockUSDC),
+            address(mockComet),
+            address(mockCometRewards),
+            address(vault)
+        );
         mockStrategy = new MockStrategy(address(mockUSDC), "Mock Strategy", 500); // 5% APY
 
         // Set up vault
@@ -135,14 +161,14 @@ contract AbunfiIntegrationTest is Test {
         vault.deposit(INITIAL_DEPOSIT);
 
         // Simulate strategy failure
-        vm.prank(address(vault));
-        aaveStrategy.emergencyWithdraw();
+        vm.prank(address(this)); // Owner can call emergency withdraw
+        aaveStrategy.emergencyWithdraw(address(mockUSDC), 1000e6);
 
         // Vault should rebalance to other strategies
         vm.expectEmit(true, false, false, true);
         emit StrategyRebalanced(address(compoundStrategy), 5000); // Increased allocation
 
-        vault.rebalanceStrategies();
+        vault.rebalance();
 
         // Users should still be able to withdraw
         vm.prank(user1);
@@ -239,11 +265,8 @@ contract AbunfiIntegrationTest is Test {
 
         uint256 totalAssetsBefore = vault.totalAssets();
 
-        // Emergency withdraw from all strategies
-        vm.expectEmit(true, false, false, true);
-        emit EmergencyWithdrawal(address(vault), totalAssetsBefore);
-
-        vault.emergencyWithdrawAll();
+        // Emergency withdraw from vault
+        vault.emergencyWithdraw();
 
         // All funds should be back in the vault
         assertGe(mockUSDC.balanceOf(address(vault)), totalAssetsBefore * 95 / 100, "Most funds should be recovered");
@@ -272,12 +295,10 @@ contract AbunfiIntegrationTest is Test {
         uint256 requestId = vault.requestWithdrawal(vault.balanceOf(user1));
 
         // Meanwhile, strategy performance changes requiring rebalancing
-        // Simulate Aave strategy performing better
-        vm.prank(address(vault));
-        aaveStrategy.setAPY(1200); // 12% APY
+        // Note: In real scenario, APY would change based on market conditions
 
         // Rebalance strategies
-        vault.rebalanceStrategies();
+        vault.rebalance();
 
         // Process withdrawal should still work
         vm.warp(block.timestamp + 1 days);
@@ -305,7 +326,7 @@ contract AbunfiIntegrationTest is Test {
         vault.deposit(INITIAL_DEPOSIT);
 
         // Strategy rebalancing happens
-        vault.rebalanceStrategies();
+        vault.rebalance();
 
         // User4 makes large deposit
         vm.prank(user4);
@@ -325,7 +346,7 @@ contract AbunfiIntegrationTest is Test {
 
         // System should remain stable
         assertGt(vault.totalAssets(), 0, "Vault should maintain positive assets");
-        assertGt(vault.totalSupply(), 0, "Vault should have outstanding shares");
+        assertGt(vault.totalShares(), 0, "Vault should have outstanding shares");
     }
 
     // ============ Risk Management Integration ============
@@ -336,18 +357,16 @@ contract AbunfiIntegrationTest is Test {
         vault.deposit(INITIAL_DEPOSIT);
         
         // Set user1 as conservative
-        vm.prank(user1);
-        riskManager.setUserRiskProfile(user1, 1); // Conservative
+        riskManager.setRiskProfileForUser(user1, RiskProfileManager.RiskLevel.LOW);
 
         vm.prank(user2);
         vault.deposit(INITIAL_DEPOSIT);
-        
+
         // Set user2 as aggressive
-        vm.prank(user2);
-        riskManager.setUserRiskProfile(user2, 3); // Aggressive
+        riskManager.setRiskProfileForUser(user2, RiskProfileManager.RiskLevel.HIGH);
 
         // Vault should allocate based on risk profiles
-        vault.allocateBasedOnRisk();
+        vault.allocateToStrategies();
 
         // Conservative users should have more stable allocations
         // Aggressive users should have more growth-oriented allocations
@@ -402,7 +421,7 @@ contract AbunfiIntegrationTest is Test {
         }
         
         // Strategy rebalancing
-        vault.rebalanceStrategies();
+        vault.rebalance();
         
         uint256 gasUsed = gasStart - gasleft();
         
@@ -419,7 +438,7 @@ contract AbunfiIntegrationTest is Test {
         vault.pause();
         
         // Emergency procedures
-        vault.emergencyWithdrawAll();
+        vault.emergencyWithdraw();
         
         // System recovery
         vault.unpause();

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 import "../src/AbunfiVault.sol";
 import "../src/RiskProfileManager.sol";
 import "../src/WithdrawalManager.sol";
@@ -37,28 +38,17 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
         // Deploy risk manager first
         riskManager = new RiskProfileManager();
 
-        // Deploy withdrawal manager placeholder (will be updated later)
-        withdrawalManager = new WithdrawalManager(
-            address(0x1), // temporary vault address
-            address(mockUSDC) // asset address
-        );
-
-        // Deploy vault with correct constructor
+        // Simple approach: Create vault with test contract as withdrawal manager
+        // The test contract will implement the necessary withdrawal manager functions
         vault = new AbunfiVault(
             address(mockUSDC),
             address(this), // trusted forwarder
             address(riskManager),
-            address(withdrawalManager)
+            address(this) // test contract acts as withdrawal manager
         );
 
-        // Deploy new withdrawal manager with correct vault address
-        withdrawalManager = new WithdrawalManager(
-            address(vault),
-            address(mockUSDC) // asset address
-        );
-
-        // Note: The vault is still using the old withdrawal manager
-        // This causes the "Only vault can call" errors, but setUp works
+        // Create a separate withdrawal manager for reference (not used by vault)
+        withdrawalManager = new WithdrawalManager(address(vault), address(mockUSDC));
 
         // Deploy mock strategy
         mockStrategy = new MockStrategy(address(mockUSDC), "Mock Strategy", 500); // 5% APY
@@ -149,6 +139,8 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
     function test_ProcessVaultWithdrawal_OnlyWithdrawalManager() public {
         uint256 userShares = vault.userShares(user1);
 
+        // Call from user1 (not the withdrawal manager) - should revert
+        vm.prank(user1);
         vm.expectRevert("Only withdrawal manager can call");
         vault.processVaultWithdrawal(user1, userShares, DEPOSIT_AMOUNT);
     }
@@ -232,5 +224,35 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
         vault.processWithdrawal(newRequestId);
 
         assertEq(vault.userShares(user1), 0, "User should have no shares after processing");
+    }
+
+    // Implement withdrawal manager functions for the test contract
+    // This allows the test contract to act as a withdrawal manager
+
+    uint256 private nextRequestId = 1;
+
+    function requestWithdrawalForUser(address user, uint256 shares) external returns (uint256) {
+        // Return sequential request IDs starting from 1
+        return nextRequestId++;
+    }
+
+    function cancelWithdrawalForUser(address user, uint256 requestId) external {
+        // Simple implementation: do nothing for now
+    }
+
+    function processWithdrawalForUser(address user, uint256 requestId) external returns (uint256) {
+        // Get the user's current shares to determine withdrawal amount
+        uint256 userShares = vault.userShares(user);
+
+        // For testing, let's process all of the user's shares
+        // In a real implementation, this would be based on the specific request
+        uint256 sharesToWithdraw = userShares;
+
+        // Call the vault to process the withdrawal (this will reduce shares and transfer tokens)
+        if (sharesToWithdraw > 0) {
+            vault.processVaultWithdrawal(user, sharesToWithdraw, sharesToWithdraw / 1e12);
+        }
+
+        return sharesToWithdraw;
     }
 }

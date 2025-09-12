@@ -23,9 +23,9 @@ contract AbunfiVaultNewFunctionsTest is Test {
 
     event WithdrawalRequested(address indexed user, uint256 indexed requestId, uint256 shares, uint256 estimatedAmount);
     event WithdrawalProcessed(address indexed user, uint256 indexed requestId, uint256 shares, uint256 amount);
-    event WithdrawalCancelled(address indexed user, uint256 indexed requestId, uint256 shares);
-    event VaultWithdrawalProcessed(address indexed user, uint256 shares, uint256 amount);
-    event RiskManagersUpdated(address indexed riskProfileManager, address indexed withdrawalManager);
+    event WithdrawalCancelled(address indexed user, uint256 indexed requestId);
+    event Withdraw(address indexed user, uint256 amount, uint256 shares);
+    event RiskManagersUpdated(address riskProfileManager, address withdrawalManager);
 
     function setUp() public {
         // Deploy mock USDC
@@ -44,10 +44,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
         vault = new AbunfiVault(address(mockUSDC), address(0), address(riskManager), address(withdrawalManager));
 
         // Deploy new withdrawal manager with correct vault address
-        withdrawalManager = new WithdrawalManager(
-            address(vault),
-            address(mockUSDC)
-        );
+        withdrawalManager = new WithdrawalManager(address(vault), address(mockUSDC));
 
         // Update vault to use the correct withdrawal manager
         vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
@@ -80,17 +77,14 @@ contract AbunfiVaultNewFunctionsTest is Test {
     // ============ requestWithdrawal Tests ============
 
     function test_RequestWithdrawal_ValidRequest() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
+        // User1 already has shares from setUp (100 USDC = 100e18 shares)
         uint256 userShares = vault.userShares(user1);
+        assertEq(userShares, 100e18, "User should have 100e18 shares from setUp");
+
         uint256 withdrawShares = userShares / 2;
 
         vm.expectEmit(true, true, false, true);
-        emit WithdrawalRequested(user1, 0, withdrawShares, withdrawShares / 1e12); // Assuming simple conversion
+        emit WithdrawalRequested(user1, 0, withdrawShares, withdrawShares / 1e12); // 50e18 shares -> 50e6 USDC
 
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(withdrawShares);
@@ -106,12 +100,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_RequestWithdrawal_InsufficientShares() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
+        // User1 already has shares from setUp
         uint256 userShares = vault.userShares(user1);
 
         vm.prank(user1);
@@ -120,17 +109,12 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_RequestWithdrawal_MultipleRequests() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
+        // User1 already has shares from setUp
         uint256 userShares = vault.userShares(user1);
         // For 100 USDC deposit, user gets 100e18 shares
         assertEq(userShares, 100e18, "User should have 100e18 shares");
 
-        uint256 firstWithdraw = userShares / 3;  // 33.333... e18
+        uint256 firstWithdraw = userShares / 3; // 33.333... e18
         uint256 secondWithdraw = userShares / 3; // 33.333... e18
 
         vm.startPrank(user1);
@@ -150,13 +134,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     // ============ processWithdrawal Tests ============
 
     function test_ProcessWithdrawal_ValidProcessing() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
-        // First request withdrawal
+        // User1 already has shares from setUp
         uint256 userShares = vault.userShares(user1);
         uint256 withdrawShares = userShares / 2;
 
@@ -169,7 +147,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
         uint256 initialBalance = mockUSDC.balanceOf(user1);
 
         vm.expectEmit(true, true, false, true);
-        emit WithdrawalProcessed(user1, requestId, withdrawShares, withdrawShares); // Assuming 1:1 ratio
+        emit WithdrawalProcessed(user1, requestId, withdrawShares, 50000000); // 50e18 shares -> 50e6 USDC
 
         vm.prank(user1);
         vault.processWithdrawal(requestId);
@@ -184,13 +162,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_ProcessWithdrawal_NotOwner() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
-        // User1 requests withdrawal
+        // User1 already has shares from setUp
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(vault.userShares(user1) / 2);
 
@@ -201,12 +173,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_ProcessWithdrawal_TooEarly() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
+        // User1 already has shares from setUp
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(vault.userShares(user1) / 2);
 
@@ -219,12 +186,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     // ============ cancelWithdrawal Tests ============
 
     function test_CancelWithdrawal_ValidCancellation() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
+        // User1 already has shares from setUp
         uint256 userShares = vault.userShares(user1);
         uint256 withdrawShares = userShares / 2;
 
@@ -234,7 +196,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
         uint256 sharesAfterRequest = vault.userShares(user1);
 
         vm.expectEmit(true, true, false, true);
-        emit WithdrawalCancelled(user1, requestId, withdrawShares);
+        emit WithdrawalCancelled(user1, requestId);
 
         vm.prank(user1);
         vault.cancelWithdrawal(requestId);
@@ -249,12 +211,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_CancelWithdrawal_NotOwner() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
+        // User1 already has shares from setUp
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(vault.userShares(user1) / 2);
 
@@ -264,12 +221,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_CancelWithdrawal_AlreadyProcessed() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
+        // User1 already has shares from setUp
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(vault.userShares(user1) / 2);
 
@@ -292,21 +244,19 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_ProcessVaultWithdrawal_ValidCall() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
+        // User1 already has shares from setUp (100e18)
         uint256 shares = 50e18;
         uint256 amount = 50e6;
 
         vm.expectEmit(true, false, false, true);
-        emit VaultWithdrawalProcessed(user1, shares, amount);
+        emit Withdraw(user1, amount, shares);
 
         // Call from withdrawal manager
         vm.prank(address(withdrawalManager));
         vault.processVaultWithdrawal(user1, shares, amount);
+
+        // Verify user shares are reduced
+        assertEq(vault.userShares(user1), 50e18, "User shares should be reduced by 50e18");
     }
 
     // ============ updateRiskManagers Tests ============
@@ -318,7 +268,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
             address(mockUSDC) // asset address
         );
 
-        vm.expectEmit(true, true, false, false);
+        vm.expectEmit(false, false, false, true);
         emit RiskManagersUpdated(address(newRiskManager), address(newWithdrawalManager));
 
         vault.updateRiskManagers(address(newRiskManager), address(newWithdrawalManager));
@@ -349,13 +299,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     // ============ Integration Tests ============
 
     function test_FullWithdrawalFlow() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
-        // 1. Request withdrawal
+        // User1 already has shares from setUp
         uint256 userShares = vault.userShares(user1);
         uint256 withdrawShares = userShares / 2;
         uint256 initialUSDCBalance = mockUSDC.balanceOf(user1);
@@ -376,13 +320,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_CancelAndResubmitWithdrawal() public {
-        // First, user1 needs to deposit to have shares
-        vm.prank(user1);
-        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
-        vm.prank(user1);
-        vault.deposit(DEPOSIT_AMOUNT);
-
-        // 1. Request withdrawal
+        // User1 already has shares from setUp
         uint256 userShares = vault.userShares(user1);
         uint256 withdrawShares = userShares / 2;
 

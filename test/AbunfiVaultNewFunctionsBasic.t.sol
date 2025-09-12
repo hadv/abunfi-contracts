@@ -62,7 +62,7 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
 
         // Set up vault
         vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
-        vault.addStrategy(address(mockStrategy), 10000); // 100% weight
+        // Skip adding strategy for basic tests
 
         // Mint tokens to users
         mockUSDC.mint(user1, 1000e6);

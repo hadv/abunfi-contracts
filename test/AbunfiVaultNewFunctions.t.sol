@@ -349,16 +349,22 @@ contract AbunfiVaultNewFunctionsTest is Test {
     // ============ Integration Tests ============
 
     function test_FullWithdrawalFlow() public {
+        // First, user1 needs to deposit to have shares
+        vm.prank(user1);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
         // 1. Request withdrawal
-        uint256 userShares = vault.balanceOf(user1);
+        uint256 userShares = vault.userShares(user1);
         uint256 withdrawShares = userShares / 2;
         uint256 initialUSDCBalance = mockUSDC.balanceOf(user1);
 
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(withdrawShares);
 
-        // 2. Wait for withdrawal window
-        vm.warp(block.timestamp + 1 days);
+        // 2. Wait for withdrawal window (7 days)
+        vm.warp(block.timestamp + 8 days);
 
         // 3. Process withdrawal
         vm.prank(user1);
@@ -366,27 +372,39 @@ contract AbunfiVaultNewFunctionsTest is Test {
 
         // 4. Verify final state
         assertGt(mockUSDC.balanceOf(user1), initialUSDCBalance, "User should receive USDC");
-        assertEq(vault.balanceOf(user1), userShares - withdrawShares, "User shares should be reduced");
+        assertEq(vault.userShares(user1), userShares - withdrawShares, "User shares should be reduced");
     }
 
     function test_CancelAndResubmitWithdrawal() public {
+        // First, user1 needs to deposit to have shares
+        vm.prank(user1);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
         // 1. Request withdrawal
-        uint256 userShares = vault.balanceOf(user1);
+        uint256 userShares = vault.userShares(user1);
         uint256 withdrawShares = userShares / 2;
 
         vm.prank(user1);
         uint256 requestId1 = vault.requestWithdrawal(withdrawShares);
 
+        // Verify shares are reduced after request
+        assertEq(vault.userShares(user1), userShares - withdrawShares, "User shares should be reduced after request");
+
         // 2. Cancel withdrawal
         vm.prank(user1);
         vault.cancelWithdrawal(requestId1);
+
+        // Verify shares are restored after cancellation
+        assertEq(vault.userShares(user1), userShares, "User shares should be restored after cancellation");
 
         // 3. Resubmit withdrawal
         vm.prank(user1);
         uint256 requestId2 = vault.requestWithdrawal(withdrawShares);
 
         // 4. Verify state
-        assertEq(vault.balanceOf(user1), userShares - withdrawShares, "User shares should be reduced again");
+        assertEq(vault.userShares(user1), userShares - withdrawShares, "User shares should be reduced again");
         assertNotEq(requestId1, requestId2, "Request IDs should be different");
     }
 }

@@ -84,12 +84,12 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
     // ============ REQUEST WITHDRAWAL TESTS ============
 
     function test_RequestWithdrawal_ValidRequest() public {
-        // This test expects "Only vault can call" error because withdrawal manager is not properly set up
         uint256 userShares = vault.userShares(user1);
 
-        vm.expectRevert("Only vault can call");
         vm.prank(user1);
-        vault.requestWithdrawal(userShares);
+        uint256 requestId = vault.requestWithdrawal(userShares);
+
+        assertEq(requestId, 1, "Request ID should be 1");
     }
 
     function test_RequestWithdrawal_ZeroShares() public {
@@ -109,23 +109,40 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
     // ============ PROCESS WITHDRAWAL TESTS ============
 
     function test_ProcessWithdrawal_ValidProcessing() public {
-        // This test expects "Only vault can call" error because withdrawal manager is not properly set up
         uint256 userShares = vault.userShares(user1);
+        uint256 balanceBefore = mockUSDC.balanceOf(user1);
 
-        vm.expectRevert("Only vault can call");
+        // Request withdrawal
         vm.prank(user1);
-        vault.requestWithdrawal(userShares);
+        uint256 requestId = vault.requestWithdrawal(userShares);
+
+        // Fast forward past withdrawal window
+        vm.warp(block.timestamp + 8 days);
+
+        // Process withdrawal
+        vm.prank(user1);
+        vault.processWithdrawal(requestId);
+
+        uint256 balanceAfter = mockUSDC.balanceOf(user1);
+        assertTrue(balanceAfter > balanceBefore, "User should receive tokens");
+        assertEq(vault.userShares(user1), 0, "User shares should be zero");
     }
 
     // ============ CANCEL WITHDRAWAL TESTS ============
 
     function test_CancelWithdrawal_ValidCancellation() public {
-        // This test expects "Only vault can call" error because withdrawal manager is not properly set up
         uint256 userShares = vault.userShares(user1);
 
-        vm.expectRevert("Only vault can call");
+        // Request withdrawal
         vm.prank(user1);
-        vault.requestWithdrawal(userShares);
+        uint256 requestId = vault.requestWithdrawal(userShares);
+
+        // Cancel withdrawal
+        vm.prank(user1);
+        vault.cancelWithdrawal(requestId);
+
+        // User should still have shares
+        assertEq(vault.userShares(user1), userShares, "User should still have shares");
     }
 
     // ============ PROCESS VAULT WITHDRAWAL TESTS ============
@@ -172,20 +189,46 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
     // ============ INTEGRATION TESTS ============
 
     function test_Integration_FullWithdrawalFlow() public {
-        // This test expects "Only vault can call" error because withdrawal manager is not properly set up
         uint256 userShares = vault.userShares(user1);
+        uint256 balanceBefore = mockUSDC.balanceOf(user1);
 
-        vm.expectRevert("Only vault can call");
+        // 1. Request withdrawal
         vm.prank(user1);
-        vault.requestWithdrawal(userShares);
+        uint256 requestId = vault.requestWithdrawal(userShares);
+
+        // 2. Wait for withdrawal window
+        vm.warp(block.timestamp + 8 days);
+
+        // 3. Process withdrawal
+        vm.prank(user1);
+        vault.processWithdrawal(requestId);
+
+        // 4. Verify results
+        uint256 balanceAfter = mockUSDC.balanceOf(user1);
+        assertTrue(balanceAfter > balanceBefore, "User should receive tokens");
+        assertEq(vault.userShares(user1), 0, "User should have no shares");
     }
 
     function test_Integration_CancelAndResubmit() public {
-        // This test expects "Only vault can call" error because withdrawal manager is not properly set up
         uint256 userShares = vault.userShares(user1);
 
-        vm.expectRevert("Only vault can call");
+        // 1. Request withdrawal
         vm.prank(user1);
-        vault.requestWithdrawal(userShares);
+        uint256 requestId = vault.requestWithdrawal(userShares);
+
+        // 2. Cancel withdrawal
+        vm.prank(user1);
+        vault.cancelWithdrawal(requestId);
+
+        // 3. Submit new withdrawal request
+        vm.prank(user1);
+        uint256 newRequestId = vault.requestWithdrawal(userShares);
+
+        // 4. Process new request
+        vm.warp(block.timestamp + 8 days);
+        vm.prank(user1);
+        vault.processWithdrawal(newRequestId);
+
+        assertEq(vault.userShares(user1), 0, "User should have no shares after processing");
     }
 }

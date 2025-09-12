@@ -1008,15 +1008,15 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         try riskProfileManager.getRiskAllocation(riskLevel) returns (
             RiskProfileManager.RiskAllocation memory riskAllocation
         ) {
-            address[] memory strategies = riskAllocation.strategies;
+            address[] memory riskStrategies = riskAllocation.strategies;
             uint256[] memory allocations = riskAllocation.allocations;
 
-            for (uint256 i = 0; i < strategies.length; i++) {
-                if (isActiveStrategy[strategies[i]]) {
+            for (uint256 i = 0; i < riskStrategies.length; i++) {
+                if (isActiveStrategy[riskStrategies[i]]) {
                     uint256 allocation = (amount * allocations[i]) / BASIS_POINTS;
                     if (allocation > 0) {
-                        asset.safeTransfer(strategies[i], allocation);
-                        IAbunfiStrategy(strategies[i]).deposit(allocation);
+                        asset.safeTransfer(riskStrategies[i], allocation);
+                        IAbunfiStrategy(riskStrategies[i]).deposit(allocation);
                     }
                 }
             }

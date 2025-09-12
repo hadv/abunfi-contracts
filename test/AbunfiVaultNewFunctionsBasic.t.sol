@@ -173,18 +173,11 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
     }
 
     function test_UpdateRiskManagers_ZeroAddresses() public {
-        // Create valid managers for testing since setUp doesn't set them up
-        RiskProfileManager validRiskManager = new RiskProfileManager();
-        WithdrawalManager validWithdrawalManager = new WithdrawalManager(
-            address(vault),
-            address(mockUSDC)
-        );
-
         vm.expectRevert("Invalid risk profile manager");
-        vault.updateRiskManagers(address(0), address(validWithdrawalManager));
+        vault.updateRiskManagers(address(0), address(withdrawalManager));
 
         vm.expectRevert("Invalid withdrawal manager");
-        vault.updateRiskManagers(address(validRiskManager), address(0));
+        vault.updateRiskManagers(address(riskManager), address(0));
     }
 
     function test_UpdateRiskManagers_OnlyOwner() public {
@@ -194,10 +187,7 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
 
         // Create valid managers for testing since setUp doesn't set them up
         RiskProfileManager validRiskManager = new RiskProfileManager();
-        WithdrawalManager validWithdrawalManager = new WithdrawalManager(
-            address(vault),
-            address(mockUSDC)
-        );
+        WithdrawalManager validWithdrawalManager = new WithdrawalManager(address(vault), address(mockUSDC));
 
         vault.updateRiskManagers(address(validRiskManager), address(validWithdrawalManager));
     }

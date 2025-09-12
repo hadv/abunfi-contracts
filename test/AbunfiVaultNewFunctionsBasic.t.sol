@@ -60,7 +60,8 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
         // Deploy mock strategy
         mockStrategy = new MockStrategy(address(mockUSDC), "Mock Strategy", 500); // 5% APY
 
-        // Set up vault - commented out owner-only functions to prevent setUp failure
+        // Skip owner-only functions to prevent setUp failure
+        // Individual tests will handle their own setup as needed
         // vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
         // vault.addStrategy(address(mockStrategy), 10000); // 100% weight
 
@@ -74,11 +75,11 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
         vm.prank(user2);
         mockUSDC.approve(address(vault), type(uint256).max);
 
-        // Users deposit - commented out due to manager setup dependency
-        // vm.prank(user1);
-        // vault.deposit(DEPOSIT_AMOUNT);
-        // vm.prank(user2);
-        // vault.deposit(DEPOSIT_AMOUNT);
+        // Users deposit
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+        vm.prank(user2);
+        vault.deposit(DEPOSIT_AMOUNT);
     }
 
     // ============ REQUEST WITHDRAWAL TESTS ============

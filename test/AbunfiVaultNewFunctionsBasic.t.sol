@@ -173,7 +173,7 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
     }
 
     function test_UpdateRiskManagers_ZeroAddresses() public {
-        // Create valid managers for testing
+        // Create valid managers for testing since setUp doesn't set them up
         RiskProfileManager validRiskManager = new RiskProfileManager();
         WithdrawalManager validWithdrawalManager = new WithdrawalManager(
             address(vault),
@@ -188,9 +188,18 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
     }
 
     function test_UpdateRiskManagers_OnlyOwner() public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        // Use the correct OpenZeppelin v5 error format
+        vm.expectRevert(abi.encodeWithSelector(0x118cdaa7, user1)); // OwnableUnauthorizedAccount(user1)
         vm.prank(user1);
-        vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
+
+        // Create valid managers for testing since setUp doesn't set them up
+        RiskProfileManager validRiskManager = new RiskProfileManager();
+        WithdrawalManager validWithdrawalManager = new WithdrawalManager(
+            address(vault),
+            address(mockUSDC)
+        );
+
+        vault.updateRiskManagers(address(validRiskManager), address(validWithdrawalManager));
     }
 
     // ============ INTEGRATION TESTS ============

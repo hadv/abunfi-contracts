@@ -3,17 +3,17 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/AbunfiVault.sol";
+import "../src/RiskProfileManager.sol";
+import "../src/WithdrawalManager.sol";
 import "../src/mocks/MockERC20.sol";
 import "../src/mocks/MockStrategy.sol";
 
 contract AbunfiVaultNewFunctionsTest is Test {
     AbunfiVault public vault;
+    RiskProfileManager public riskManager;
+    WithdrawalManager public withdrawalManager;
     MockERC20 public mockUSDC;
     MockStrategy public mockStrategy;
-
-    // Store the mock managers for testing
-    address public riskManager;
-    address public withdrawalManager;
 
     address public user1 = address(0x1);
     address public user2 = address(0x2);
@@ -31,12 +31,26 @@ contract AbunfiVaultNewFunctionsTest is Test {
         // Deploy mock USDC
         mockUSDC = new MockERC20("Mock USDC", "USDC", 6);
 
-        // Use simple mock contracts for risk and withdrawal managers to avoid complex setup
-        riskManager = address(new MockERC20("Mock Risk Manager", "MRM", 18));
-        withdrawalManager = address(new MockERC20("Mock Withdrawal Manager", "MWM", 18));
+        // Deploy real risk manager
+        riskManager = new RiskProfileManager();
 
-        // Deploy vault with mock managers
-        vault = new AbunfiVault(address(mockUSDC), address(0), riskManager, withdrawalManager);
+        // Deploy withdrawal manager with temporary vault address
+        withdrawalManager = new WithdrawalManager(
+            address(0x1), // temporary vault address
+            address(mockUSDC)
+        );
+
+        // Deploy vault with real managers
+        vault = new AbunfiVault(address(mockUSDC), address(0), address(riskManager), address(withdrawalManager));
+
+        // Deploy new withdrawal manager with correct vault address
+        withdrawalManager = new WithdrawalManager(
+            address(vault),
+            address(mockUSDC)
+        );
+
+        // Update vault to use the correct withdrawal manager
+        vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
 
         // Deploy mock strategy
         mockStrategy = new MockStrategy(address(mockUSDC), "Mock Strategy", 500); // 5% APY
@@ -66,26 +80,39 @@ contract AbunfiVaultNewFunctionsTest is Test {
     // ============ requestWithdrawal Tests ============
 
     function test_RequestWithdrawal_ValidRequest() public {
-        uint256 userShares = vault.balanceOf(user1);
+        // First, user1 needs to deposit to have shares
+        vm.prank(user1);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
+        uint256 userShares = vault.userShares(user1);
         uint256 withdrawShares = userShares / 2;
 
-        // Since we're using mock withdrawal manager, we can't test the actual withdrawal functionality
-        // This test will verify that the function exists and can be called
-        vm.prank(user1);
+        vm.expectEmit(true, true, false, true);
+        emit WithdrawalRequested(user1, 0, withdrawShares, withdrawShares / 1e12); // Assuming simple conversion
 
-        // The function should revert because the mock withdrawal manager doesn't implement the interface
-        vm.expectRevert();
-        vault.requestWithdrawal(withdrawShares);
+        vm.prank(user1);
+        uint256 requestId = vault.requestWithdrawal(withdrawShares);
+
+        assertEq(requestId, 0, "First request should have ID 0");
+        assertEq(vault.userShares(user1), userShares - withdrawShares, "User shares should be reduced");
     }
 
     function test_RequestWithdrawal_ZeroShares() public {
         vm.prank(user1);
-        vm.expectRevert("Shares must be greater than zero");
+        vm.expectRevert("Cannot withdraw 0 shares");
         vault.requestWithdrawal(0);
     }
 
     function test_RequestWithdrawal_InsufficientShares() public {
-        uint256 userShares = vault.balanceOf(user1);
+        // First, user1 needs to deposit to have shares
+        vm.prank(user1);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
+        uint256 userShares = vault.userShares(user1);
 
         vm.prank(user1);
         vm.expectRevert("Insufficient shares");
@@ -93,36 +120,51 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_RequestWithdrawal_MultipleRequests() public {
-        uint256 userShares = vault.balanceOf(user1);
-        uint256 firstWithdraw = userShares / 3;
-        uint256 secondWithdraw = userShares / 3;
+        // First, user1 needs to deposit to have shares
+        vm.prank(user1);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
+        uint256 userShares = vault.userShares(user1);
+        // For 100 USDC deposit, user gets 100e18 shares
+        assertEq(userShares, 100e18, "User should have 100e18 shares");
+
+        uint256 firstWithdraw = userShares / 3;  // 33.333... e18
+        uint256 secondWithdraw = userShares / 3; // 33.333... e18
 
         vm.startPrank(user1);
         uint256 requestId1 = vault.requestWithdrawal(firstWithdraw);
         uint256 requestId2 = vault.requestWithdrawal(secondWithdraw);
         vm.stopPrank();
 
-        assertEq(requestId1, 1, "First request ID should be 1");
-        assertEq(requestId2, 2, "Second request ID should be 2");
-        assertEq(
-            vault.balanceOf(user1),
-            userShares - firstWithdraw - secondWithdraw,
-            "User shares should be reduced by both withdrawals"
-        );
+        assertEq(requestId1, 0, "First request ID should be 0");
+        assertEq(requestId2, 1, "Second request ID should be 1");
+
+        // Verify user shares are reduced
+        uint256 finalShares = vault.userShares(user1);
+        uint256 expectedFinalShares = userShares - firstWithdraw - secondWithdraw;
+        assertEq(finalShares, expectedFinalShares, "User shares should be reduced");
     }
 
     // ============ processWithdrawal Tests ============
 
     function test_ProcessWithdrawal_ValidProcessing() public {
+        // First, user1 needs to deposit to have shares
+        vm.prank(user1);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
         // First request withdrawal
-        uint256 userShares = vault.balanceOf(user1);
+        uint256 userShares = vault.userShares(user1);
         uint256 withdrawShares = userShares / 2;
 
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(withdrawShares);
 
         // Fast forward time to pass withdrawal window
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(block.timestamp + 8 days); // Use 8 days to be safe
 
         uint256 initialBalance = mockUSDC.balanceOf(user1);
 
@@ -142,9 +184,15 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_ProcessWithdrawal_NotOwner() public {
+        // First, user1 needs to deposit to have shares
+        vm.prank(user1);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
         // User1 requests withdrawal
         vm.prank(user1);
-        uint256 requestId = vault.requestWithdrawal(vault.balanceOf(user1) / 2);
+        uint256 requestId = vault.requestWithdrawal(vault.userShares(user1) / 2);
 
         // User2 tries to process user1's withdrawal
         vm.prank(user2);
@@ -153,8 +201,14 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_ProcessWithdrawal_TooEarly() public {
+        // First, user1 needs to deposit to have shares
         vm.prank(user1);
-        uint256 requestId = vault.requestWithdrawal(vault.balanceOf(user1) / 2);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
+        vm.prank(user1);
+        uint256 requestId = vault.requestWithdrawal(vault.userShares(user1) / 2);
 
         // Try to process immediately (within withdrawal window)
         vm.prank(user1);
@@ -165,13 +219,19 @@ contract AbunfiVaultNewFunctionsTest is Test {
     // ============ cancelWithdrawal Tests ============
 
     function test_CancelWithdrawal_ValidCancellation() public {
-        uint256 userShares = vault.balanceOf(user1);
+        // First, user1 needs to deposit to have shares
+        vm.prank(user1);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
+        uint256 userShares = vault.userShares(user1);
         uint256 withdrawShares = userShares / 2;
 
         vm.prank(user1);
         uint256 requestId = vault.requestWithdrawal(withdrawShares);
 
-        uint256 sharesAfterRequest = vault.balanceOf(user1);
+        uint256 sharesAfterRequest = vault.userShares(user1);
 
         vm.expectEmit(true, true, false, true);
         emit WithdrawalCancelled(user1, requestId, withdrawShares);
@@ -179,7 +239,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
         vm.prank(user1);
         vault.cancelWithdrawal(requestId);
 
-        assertEq(vault.balanceOf(user1), userShares, "User shares should be restored");
+        assertEq(vault.userShares(user1), userShares, "User shares should be restored");
     }
 
     function test_CancelWithdrawal_InvalidRequestId() public {
@@ -189,8 +249,14 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_CancelWithdrawal_NotOwner() public {
+        // First, user1 needs to deposit to have shares
         vm.prank(user1);
-        uint256 requestId = vault.requestWithdrawal(vault.balanceOf(user1) / 2);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
+        vm.prank(user1);
+        uint256 requestId = vault.requestWithdrawal(vault.userShares(user1) / 2);
 
         vm.prank(user2);
         vm.expectRevert("Not request owner");
@@ -198,11 +264,17 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_CancelWithdrawal_AlreadyProcessed() public {
+        // First, user1 needs to deposit to have shares
         vm.prank(user1);
-        uint256 requestId = vault.requestWithdrawal(vault.balanceOf(user1) / 2);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
+        vm.prank(user1);
+        uint256 requestId = vault.requestWithdrawal(vault.userShares(user1) / 2);
 
         // Fast forward and process
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(block.timestamp + 8 days);
         vm.prank(user1);
         vault.processWithdrawal(requestId);
 
@@ -215,20 +287,25 @@ contract AbunfiVaultNewFunctionsTest is Test {
     // ============ processVaultWithdrawal Tests ============
 
     function test_ProcessVaultWithdrawal_OnlyWithdrawalManager() public {
-        vm.expectRevert("Only withdrawal manager");
+        vm.expectRevert("Only withdrawal manager can call");
         vault.processVaultWithdrawal(user1, 100, 100);
     }
 
     function test_ProcessVaultWithdrawal_ValidCall() public {
+        // First, user1 needs to deposit to have shares
+        vm.prank(user1);
+        mockUSDC.approve(address(vault), DEPOSIT_AMOUNT);
+        vm.prank(user1);
+        vault.deposit(DEPOSIT_AMOUNT);
+
         uint256 shares = 50e18;
         uint256 amount = 50e6;
 
         vm.expectEmit(true, false, false, true);
         emit VaultWithdrawalProcessed(user1, shares, amount);
 
-        // Since we're using mock withdrawal manager, this test will revert
-        // This is expected behavior with the simplified test setup
-        vm.expectRevert();
+        // Call from withdrawal manager
+        vm.prank(address(withdrawalManager));
         vault.processVaultWithdrawal(user1, shares, amount);
     }
 
@@ -254,7 +331,7 @@ contract AbunfiVaultNewFunctionsTest is Test {
     }
 
     function test_UpdateRiskManagers_ZeroAddressRiskManager() public {
-        vm.expectRevert("Invalid risk manager");
+        vm.expectRevert("Invalid risk profile manager");
         vault.updateRiskManagers(address(0), address(withdrawalManager));
     }
 

@@ -17,6 +17,12 @@ import "forge-std/console.sol";
  * @dev Main vault contract for Abunfi micro-savings platform
  * Manages user deposits and allocates funds to yield-generating strategies
  * Supports gasless transactions via ERC-2771 meta-transactions
+ *
+ * Features:
+ * - Batched allocation system to reduce gas costs for small deposits
+ * - Risk-based allocation based on user preferences
+ * - Chainlink Keeper integration for automated allocation
+ * - Configurable thresholds and intervals for optimal efficiency
  */
 contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     using SafeERC20 for IERC20;
@@ -51,6 +57,16 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     uint256 public constant MAX_STRATEGIES = 10;
     uint256 public constant BASIS_POINTS = 10000;
 
+    // Batching system state variables
+    uint256 public allocationThreshold = 1000e6; // $1000 USDC minimum for allocation
+    uint256 public lastAllocationTime;
+    uint256 public allocationInterval = 4 hours; // Minimum time between allocations
+    uint256 public emergencyAllocationThreshold = 5000e6; // $5000 for immediate allocation
+
+    // Track pending allocations by risk level
+    mapping(RiskProfileManager.RiskLevel => uint256) public pendingAllocationsByRisk;
+    uint256 public totalPendingAllocations;
+
     // Events
     event Deposit(address indexed user, uint256 amount, uint256 shares, RiskProfileManager.RiskLevel riskLevel);
     event Withdraw(address indexed user, uint256 amount, uint256 shares);
@@ -64,6 +80,12 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     event Rebalanced(uint256 totalRebalanced);
     event RiskManagersUpdated(address riskProfileManager, address withdrawalManager);
     event ReserveRatioUpdated(uint256 oldRatio, uint256 newRatio);
+
+    // Batching system events
+    event BatchAllocationExecuted(uint256 amount, uint256 timestamp);
+    event AllocationThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
+    event AllocationIntervalUpdated(uint256 oldInterval, uint256 newInterval);
+    event EmergencyAllocationThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
 
     constructor(address _asset, address _trustedForwarder, address _riskProfileManager, address _withdrawalManager)
         Ownable(msg.sender)
@@ -96,8 +118,9 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     }
 
     /**
-     * @dev Deposit USDC to start earning yield with risk-based allocation
+     * @dev Deposit USDC to start earning yield with batched allocation
      * @param amount Amount of USDC to deposit
+     * @notice Funds are batched for efficient allocation to reduce gas costs
      */
     function deposit(uint256 amount) external nonReentrant whenNotPaused {
         require(amount >= MINIMUM_DEPOSIT, "Amount below minimum");
@@ -124,7 +147,7 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         // Transfer tokens
         asset.safeTransferFrom(sender, address(this), amount);
 
-        // Get user's risk level for allocation (with fallback)
+        // Get user's risk level for tracking (with fallback)
         RiskProfileManager.RiskLevel riskLevel;
         try riskProfileManager.getUserRiskLevel(sender) returns (RiskProfileManager.RiskLevel level) {
             riskLevel = level;
@@ -133,8 +156,14 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
             riskLevel = RiskProfileManager.RiskLevel.MEDIUM;
         }
 
-        // Trigger risk-based allocation
-        _allocateBasedOnRisk(amount, riskLevel);
+        // BATCHING LOGIC: Track pending allocations instead of immediate allocation
+        totalPendingAllocations += amount;
+        pendingAllocationsByRisk[riskLevel] += amount;
+
+        // Check if we should trigger batch allocation
+        if (_shouldTriggerAllocation()) {
+            _executeBatchAllocation();
+        }
 
         emit Deposit(sender, amount, shares, riskLevel);
         emit RiskBasedDeposit(sender, amount, riskLevel);
@@ -187,8 +216,14 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         // Transfer tokens
         asset.safeTransferFrom(sender, address(this), amount);
 
-        // Trigger risk-based allocation
-        _allocateBasedOnRisk(amount, riskLevel);
+        // BATCHING LOGIC: Track pending allocations instead of immediate allocation
+        totalPendingAllocations += amount;
+        pendingAllocationsByRisk[riskLevel] += amount;
+
+        // Check if we should trigger batch allocation
+        if (_shouldTriggerAllocation()) {
+            _executeBatchAllocation();
+        }
 
         emit Deposit(sender, amount, shares, riskLevel);
         emit RiskBasedDeposit(sender, amount, riskLevel);
@@ -471,9 +506,16 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
     }
 
     /**
-     * @dev Allocate idle funds to strategies based on weights and APY
+     * @dev Allocate idle funds to strategies (enhanced with batching)
      */
     function allocateToStrategies() external onlyOwner {
+        _executeBatchAllocation();
+    }
+
+    /**
+     * @dev Manual allocation using legacy weight-based method
+     */
+    function allocateToStrategiesLegacy() external onlyOwner {
         uint256 totalAssets_ = totalAssets();
         uint256 idle = asset.balanceOf(address(this));
         uint256 reserve = (totalAssets_ * reserveRatio) / BASIS_POINTS;
@@ -862,6 +904,128 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         emit RiskManagersUpdated(_riskProfileManager, _withdrawalManager);
     }
 
+    // ============ BATCHING SYSTEM FUNCTIONS ============
+
+    /**
+     * @dev Check if batch allocation should be triggered
+     * @return bool Whether allocation should be triggered
+     */
+    function _shouldTriggerAllocation() internal view returns (bool) {
+        // Emergency threshold - allocate immediately for large amounts
+        if (totalPendingAllocations >= emergencyAllocationThreshold) {
+            return true;
+        }
+
+        // Regular threshold + time check
+        if (
+            totalPendingAllocations >= allocationThreshold && block.timestamp >= lastAllocationTime + allocationInterval
+        ) {
+            return true;
+        }
+
+        // Reserve ratio check - if we're running low on reserves
+        uint256 totalAssets_ = totalAssets();
+        uint256 idle = asset.balanceOf(address(this));
+        uint256 reserve = (totalAssets_ * reserveRatio) / BASIS_POINTS;
+
+        if (idle < reserve && totalPendingAllocations > 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @dev Execute batch allocation of pending funds
+     */
+    function _executeBatchAllocation() internal {
+        if (totalPendingAllocations == 0) return;
+
+        uint256 totalAssets_ = totalAssets();
+        uint256 idle = asset.balanceOf(address(this));
+        uint256 reserve = (totalAssets_ * reserveRatio) / BASIS_POINTS;
+
+        if (idle <= reserve) return; // Keep minimum reserve
+
+        uint256 toAllocate = idle - reserve;
+
+        // Allocate based on aggregated risk preferences
+        _allocateByAggregatedRisk(toAllocate);
+
+        // Reset pending allocations
+        totalPendingAllocations = 0;
+        pendingAllocationsByRisk[RiskProfileManager.RiskLevel.LOW] = 0;
+        pendingAllocationsByRisk[RiskProfileManager.RiskLevel.MEDIUM] = 0;
+        pendingAllocationsByRisk[RiskProfileManager.RiskLevel.HIGH] = 0;
+
+        lastAllocationTime = block.timestamp;
+
+        emit BatchAllocationExecuted(toAllocate, block.timestamp);
+    }
+
+    /**
+     * @dev Allocate funds based on aggregated risk preferences
+     * @param amount Amount to allocate
+     */
+    function _allocateByAggregatedRisk(uint256 amount) internal {
+        // Calculate weighted allocation based on pending amounts by risk level
+        uint256 lowRiskWeight = pendingAllocationsByRisk[RiskProfileManager.RiskLevel.LOW];
+        uint256 mediumRiskWeight = pendingAllocationsByRisk[RiskProfileManager.RiskLevel.MEDIUM];
+        uint256 highRiskWeight = pendingAllocationsByRisk[RiskProfileManager.RiskLevel.HIGH];
+
+        uint256 totalWeight = lowRiskWeight + mediumRiskWeight + highRiskWeight;
+
+        if (totalWeight == 0) {
+            // Fallback to default allocation
+            _allocateByWeight(amount);
+            return;
+        }
+
+        // Allocate to strategies based on aggregated risk preferences
+        if (lowRiskWeight > 0) {
+            uint256 lowRiskAmount = (amount * lowRiskWeight) / totalWeight;
+            _allocateToRiskLevel(lowRiskAmount, RiskProfileManager.RiskLevel.LOW);
+        }
+
+        if (mediumRiskWeight > 0) {
+            uint256 mediumRiskAmount = (amount * mediumRiskWeight) / totalWeight;
+            _allocateToRiskLevel(mediumRiskAmount, RiskProfileManager.RiskLevel.MEDIUM);
+        }
+
+        if (highRiskWeight > 0) {
+            uint256 highRiskAmount = (amount * highRiskWeight) / totalWeight;
+            _allocateToRiskLevel(highRiskAmount, RiskProfileManager.RiskLevel.HIGH);
+        }
+    }
+
+    /**
+     * @dev Allocate funds to strategies for a specific risk level
+     * @param amount Amount to allocate
+     * @param riskLevel Risk level to allocate for
+     */
+    function _allocateToRiskLevel(uint256 amount, RiskProfileManager.RiskLevel riskLevel) internal {
+        // Get risk-specific strategies and allocations
+        try riskProfileManager.getRiskAllocation(riskLevel) returns (
+            RiskProfileManager.RiskAllocation memory riskAllocation
+        ) {
+            address[] memory riskStrategies = riskAllocation.strategies;
+            uint256[] memory allocations = riskAllocation.allocations;
+
+            for (uint256 i = 0; i < riskStrategies.length; i++) {
+                if (isActiveStrategy[riskStrategies[i]]) {
+                    uint256 allocation = (amount * allocations[i]) / BASIS_POINTS;
+                    if (allocation > 0) {
+                        asset.safeTransfer(riskStrategies[i], allocation);
+                        IAbunfiStrategy(riskStrategies[i]).deposit(allocation);
+                    }
+                }
+            }
+        } catch {
+            // Fallback to weight-based allocation
+            _allocateByWeight(amount);
+        }
+    }
+
     /**
      * @dev Get user's current balance including accrued interest
      * @param user User address
@@ -889,5 +1053,112 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
      */
     function getUserTotalInterestEarned(address user) external view returns (uint256) {
         return userTotalInterestEarned[user];
+    }
+
+    // ============ CONFIGURATION FUNCTIONS ============
+
+    /**
+     * @dev Update allocation threshold
+     * @param newThreshold New threshold amount in USDC (6 decimals)
+     */
+    function updateAllocationThreshold(uint256 newThreshold) external onlyOwner {
+        require(newThreshold >= 100e6, "Threshold too low"); // Min $100
+        require(newThreshold <= 10000e6, "Threshold too high"); // Max $10k
+
+        uint256 oldThreshold = allocationThreshold;
+        allocationThreshold = newThreshold;
+
+        emit AllocationThresholdUpdated(oldThreshold, newThreshold);
+    }
+
+    /**
+     * @dev Update allocation interval
+     * @param newInterval New interval in seconds
+     */
+    function updateAllocationInterval(uint256 newInterval) external onlyOwner {
+        require(newInterval >= 1 hours, "Interval too short");
+        require(newInterval <= 24 hours, "Interval too long");
+
+        uint256 oldInterval = allocationInterval;
+        allocationInterval = newInterval;
+
+        emit AllocationIntervalUpdated(oldInterval, newInterval);
+    }
+
+    /**
+     * @dev Update emergency allocation threshold
+     * @param newThreshold New emergency threshold amount in USDC (6 decimals)
+     */
+    function updateEmergencyAllocationThreshold(uint256 newThreshold) external onlyOwner {
+        require(newThreshold >= allocationThreshold, "Emergency threshold must be >= regular threshold");
+        require(newThreshold <= 50000e6, "Emergency threshold too high"); // Max $50k
+
+        uint256 oldThreshold = emergencyAllocationThreshold;
+        emergencyAllocationThreshold = newThreshold;
+
+        emit EmergencyAllocationThresholdUpdated(oldThreshold, newThreshold);
+    }
+
+    /**
+     * @dev Get current batching configuration
+     * @return threshold Current allocation threshold
+     * @return interval Current allocation interval
+     * @return emergencyThreshold Current emergency threshold
+     * @return pendingTotal Total pending allocations
+     */
+    function getBatchingConfig()
+        external
+        view
+        returns (uint256 threshold, uint256 interval, uint256 emergencyThreshold, uint256 pendingTotal)
+    {
+        return (allocationThreshold, allocationInterval, emergencyAllocationThreshold, totalPendingAllocations);
+    }
+
+    /**
+     * @dev Get pending allocations by risk level
+     * @return lowRisk Pending LOW risk allocations
+     * @return mediumRisk Pending MEDIUM risk allocations
+     * @return highRisk Pending HIGH risk allocations
+     */
+    function getPendingAllocationsByRisk()
+        external
+        view
+        returns (uint256 lowRisk, uint256 mediumRisk, uint256 highRisk)
+    {
+        return (
+            pendingAllocationsByRisk[RiskProfileManager.RiskLevel.LOW],
+            pendingAllocationsByRisk[RiskProfileManager.RiskLevel.MEDIUM],
+            pendingAllocationsByRisk[RiskProfileManager.RiskLevel.HIGH]
+        );
+    }
+
+    // ============ KEEPER INTEGRATION ============
+
+    /**
+     * @dev Chainlink Keeper compatible function to check if upkeep is needed
+     * @return upkeepNeeded Whether batch allocation should be triggered
+     * @return performData Empty bytes (not used)
+     */
+    function checkUpkeep(bytes calldata) external view returns (bool upkeepNeeded, bytes memory performData) {
+        upkeepNeeded = _shouldTriggerAllocation();
+        performData = "";
+        return (upkeepNeeded, performData);
+    }
+
+    /**
+     * @dev Chainlink Keeper compatible function to perform upkeep
+     * @param performData Empty bytes (not used)
+     */
+    function performUpkeep(bytes calldata performData) external {
+        require(_shouldTriggerAllocation(), "Upkeep not needed");
+        _executeBatchAllocation();
+    }
+
+    /**
+     * @dev Public function to trigger batch allocation (anyone can call)
+     */
+    function triggerBatchAllocation() external {
+        require(_shouldTriggerAllocation(), "Allocation not needed");
+        _executeBatchAllocation();
     }
 }

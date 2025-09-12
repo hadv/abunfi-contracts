@@ -60,9 +60,9 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
         // Deploy mock strategy
         mockStrategy = new MockStrategy(address(mockUSDC), "Mock Strategy", 500); // 5% APY
 
-        // Set up vault - commented out due to ownership issues
-        // vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
-        // vault.addStrategy(address(mockStrategy), 10000); // 100% weight
+        // Set up vault
+        vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
+        vault.addStrategy(address(mockStrategy), 10000); // 100% weight
 
         // Mint tokens to users
         mockUSDC.mint(user1, 1000e6);
@@ -173,11 +173,18 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
     }
 
     function test_UpdateRiskManagers_ZeroAddresses() public {
+        // Create valid managers for testing
+        RiskProfileManager validRiskManager = new RiskProfileManager();
+        WithdrawalManager validWithdrawalManager = new WithdrawalManager(
+            address(vault),
+            address(mockUSDC)
+        );
+
         vm.expectRevert("Invalid risk profile manager");
-        vault.updateRiskManagers(address(0), address(withdrawalManager));
+        vault.updateRiskManagers(address(0), address(validWithdrawalManager));
 
         vm.expectRevert("Invalid withdrawal manager");
-        vault.updateRiskManagers(address(riskManager), address(0));
+        vault.updateRiskManagers(address(validRiskManager), address(0));
     }
 
     function test_UpdateRiskManagers_OnlyOwner() public {

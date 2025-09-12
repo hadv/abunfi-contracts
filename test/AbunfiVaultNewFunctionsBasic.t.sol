@@ -61,6 +61,7 @@ contract AbunfiVaultNewFunctionsBasicTest is Test {
         mockStrategy = new MockStrategy(address(mockUSDC), "Mock Strategy", 500); // 5% APY
 
         // Set up vault - comment out to avoid ownership issues in basic tests
+        // Note: Individual tests will set up managers as needed
         // vault.updateRiskManagers(address(riskManager), address(withdrawalManager));
         // vault.addStrategy(address(mockStrategy), 10000); // 100% weight
 

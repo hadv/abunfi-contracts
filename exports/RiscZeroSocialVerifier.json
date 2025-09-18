@@ -1,0 +1,234 @@
+{
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "_verifierKey",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "requestVerification",
+      "inputs": [
+        {
+          "name": "platform",
+          "type": "uint8",
+          "internalType": "enum RiscZeroSocialVerifier.SocialPlatform"
+        },
+        {
+          "name": "oauthToken",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "walletAddress",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "requestId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "submitProof",
+      "inputs": [
+        {
+          "name": "requestId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "proofData",
+          "type": "tuple",
+          "internalType": "struct RiscZeroSocialVerifier.ProofData",
+          "components": [
+            {
+              "name": "socialAccountHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "walletAddress",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "platform",
+              "type": "uint8",
+              "internalType": "enum RiscZeroSocialVerifier.SocialPlatform"
+            },
+            {
+              "name": "accountAge",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "followerCount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "timestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "socialAccountId",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "oauthTokenHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
+        },
+        {
+          "name": "riscZeroProof",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "signature",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "getVerificationResult",
+      "inputs": [
+        {
+          "name": "requestId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "isVerified",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "isCompleted",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "data",
+          "type": "tuple",
+          "internalType": "struct RiscZeroSocialVerifier.ProofData",
+          "components": [
+            {
+              "name": "socialAccountHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "walletAddress",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "platform",
+              "type": "uint8",
+              "internalType": "enum RiscZeroSocialVerifier.SocialPlatform"
+            },
+            {
+              "name": "accountAge",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "followerCount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "timestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "socialAccountId",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "oauthTokenHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "setPlatformEndpoint",
+      "inputs": [
+        {
+          "name": "platform",
+          "type": "uint8",
+          "internalType": "enum RiscZeroSocialVerifier.SocialPlatform"
+        },
+        {
+          "name": "endpoint",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "event",
+      "name": "ProofVerified",
+      "inputs": [
+        {
+          "name": "proofHash",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "requester",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "platform",
+          "type": "uint8",
+          "indexed": false,
+          "internalType": "enum RiscZeroSocialVerifier.SocialPlatform"
+        },
+        {
+          "name": "success",
+          "type": "bool",
+          "indexed": false,
+          "internalType": "bool"
+        }
+      ],
+      "anonymous": false
+    }
+  ]
+}

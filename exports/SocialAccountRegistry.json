@@ -1,0 +1,239 @@
+{
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "_verifier",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "linkSocialAccount",
+      "inputs": [
+        {
+          "name": "proof",
+          "type": "tuple",
+          "internalType": "struct SocialAccountRegistry.VerificationProof",
+          "components": [
+            {
+              "name": "socialAccountHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "walletAddress",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "platform",
+              "type": "uint8",
+              "internalType": "enum SocialAccountRegistry.SocialPlatform"
+            },
+            {
+              "name": "accountAge",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "followerCount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "timestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "proofHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "signature",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ]
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "getVerificationStatus",
+      "inputs": [
+        {
+          "name": "walletAddress",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "hasVerification",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "verificationLevel",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "isSocialAccountLinked",
+      "inputs": [
+        {
+          "name": "socialAccountHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "isLinked",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "walletAddress",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getUserSocialAccounts",
+      "inputs": [
+        {
+          "name": "walletAddress",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "platforms",
+          "type": "uint8[]",
+          "internalType": "enum SocialAccountRegistry.SocialPlatform[]"
+        },
+        {
+          "name": "accountHashes",
+          "type": "bytes32[]",
+          "internalType": "bytes32[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getPlatformConfig",
+      "inputs": [
+        {
+          "name": "platform",
+          "type": "uint8",
+          "internalType": "enum SocialAccountRegistry.SocialPlatform"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "config",
+          "type": "tuple",
+          "internalType": "struct SocialAccountRegistry.PlatformConfig",
+          "components": [
+            {
+              "name": "isEnabled",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "minimumAccountAge",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "minimumFollowers",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "verificationCooldown",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "event",
+      "name": "SocialAccountLinked",
+      "inputs": [
+        {
+          "name": "socialAccountHash",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "walletAddress",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "platform",
+          "type": "uint8",
+          "indexed": false,
+          "internalType": "enum SocialAccountRegistry.SocialPlatform"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "SocialAccountUnlinked",
+      "inputs": [
+        {
+          "name": "socialAccountHash",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "walletAddress",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "platform",
+          "type": "uint8",
+          "indexed": false,
+          "internalType": "enum SocialAccountRegistry.SocialPlatform"
+        }
+      ],
+      "anonymous": false
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+[profile.fs_permissions]
+read = ["./deployments", "./broadcast"]
+write = ["./deployments", "./broadcast"]
+
 [profile.default]
 src = "src"
 out = "out"

@@ -60,7 +60,7 @@ contract DeploySepolia is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy USDC token for testing
-        MockERC20 usdc = _deployTestUSDC();
+        MockERC20 usdc = _deployTestUSDC(deployer);
 
         // 2. Deploy core contracts
         AbunfiVault vault = _deployVault(address(usdc));
@@ -113,12 +113,12 @@ contract DeploySepolia is Script {
         );
     }
 
-    function _deployTestUSDC() internal returns (MockERC20) {
+    function _deployTestUSDC(address deployer) internal returns (MockERC20) {
         console.log("\n1. Deploying Test USDC...");
         MockERC20 usdc = new MockERC20("USD Coin (Test)", "USDC", 6);
 
         // Mint initial supply
-        usdc.mint(msg.sender, INITIAL_USDC_MINT);
+        usdc.mint(deployer, INITIAL_USDC_MINT);
 
         console.log("Test USDC deployed at:", address(usdc));
         console.log("Minted", INITIAL_USDC_MINT / 10 ** 6, "USDC to deployer");

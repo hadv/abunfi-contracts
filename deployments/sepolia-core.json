@@ -1,0 +1,40 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0x18Ee4C040568238643C07e7aFd6c53efc196D26b",
+  "timestamp": 1758900264,
+  "blockNumber": 9284844,
+  "contracts": {
+    "core": {
+      "usdc": "0x65a52CC89185A86ebd7e56761A3CD229Aa4669f1",
+      "vault": "0x094eDDFADDd34336853Ca4f738165f39D78532EE",
+      "strategyManager": "0xC3fe56D16454cd3e7176675aB221CFD364964a68"
+    },
+    "strategies": {
+      "aave": "0x050B21B2191eA6dEB0f12fD4fd40C7b59f6E397a",
+      "compound": "0xC8235CE9F96aa2D8b21Bee4Ee99a47B45C30b7f1",
+      "liquidStaking": "0x31B602db32404AB15a41075774ccAF66918edA8c"
+    },
+    "mocks": {
+      "aavePool": "0x157695fFacC689BeE6f6abCB37842AC5A088f266",
+      "compoundComet": "0x5B454B0C8c1Ee2D732a5Acc94C9930e49cD40395"
+    }
+  },
+  "configuration": {
+    "strategyWeights": {
+      "aave": 4000,
+      "compound": 3500,
+      "liquidStaking": 2500
+    },
+    "riskScores": {
+      "aave": 15,
+      "compound": 20,
+      "liquidStaking": 35
+    }
+  },
+  "testUsers": [
+    "0x1234567890123456789012345678901234567890",
+    "0x2345678901234567890123456789012345678901",
+    "0x3456789012345678901234567890123456789012"
+  ]
+}

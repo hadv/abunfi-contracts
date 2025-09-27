@@ -188,8 +188,9 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         try riskProfileManager.canUpdateRiskProfile(sender) returns (bool canUpdate) {
             if (canUpdate) {
                 try riskProfileManager.setRiskProfileForUser(sender, riskLevel) {
-                    // Risk profile updated successfully
-                } catch {
+                // Risk profile updated successfully
+                }
+                    catch {
                     // Risk profile update failed, continue with deposit
                 }
             }
@@ -860,9 +861,9 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
         address[] memory riskStrategies;
         uint256[] memory allocations;
 
-        try riskProfileManager.getUserAllocations(msg.sender) returns (
-            address[] memory riskStrats, uint256[] memory allocs
-        ) {
+        try riskProfileManager.getUserAllocations(
+            msg.sender
+        ) returns (address[] memory riskStrats, uint256[] memory allocs) {
             riskStrategies = riskStrats;
             allocations = allocs;
         } catch {
@@ -1005,9 +1006,9 @@ contract AbunfiVault is Ownable, ReentrancyGuard, Pausable, ERC2771Context {
      */
     function _allocateToRiskLevel(uint256 amount, RiskProfileManager.RiskLevel riskLevel) internal {
         // Get risk-specific strategies and allocations
-        try riskProfileManager.getRiskAllocation(riskLevel) returns (
-            RiskProfileManager.RiskAllocation memory riskAllocation
-        ) {
+        try riskProfileManager.getRiskAllocation(
+            riskLevel
+        ) returns (RiskProfileManager.RiskAllocation memory riskAllocation) {
             address[] memory riskStrategies = riskAllocation.strategies;
             uint256[] memory allocations = riskAllocation.allocations;
 

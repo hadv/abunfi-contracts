@@ -430,18 +430,11 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
 
         // Test rebalancing logic
         StablecoinRangeManager.PositionInfo memory position = StablecoinRangeManager.PositionInfo({
-            tickLower: -100,
-            tickUpper: 100,
-            liquidity: 1000,
-            lastUpdate: block.timestamp,
-            isActive: true
+            tickLower: -100, tickUpper: 100, liquidity: 1000, lastUpdate: block.timestamp, isActive: true
         });
 
         StablecoinRangeManager.RangeConfig memory config = StablecoinRangeManager.RangeConfig({
-            rangeWidth: 50,
-            rebalanceThreshold: 25,
-            minLiquidity: 100e6,
-            autoRebalance: true
+            rangeWidth: 50, rebalanceThreshold: 25, minLiquidity: 100e6, autoRebalance: true
         });
 
         bool needsRebalance = StablecoinRangeManager.needsRebalancing(50, position, config);
@@ -452,11 +445,7 @@ contract UniswapV4FairFlowStablecoinStrategyTest is Test {
 
     function test_FeeOptimizerLibrary() public {
         FeeOptimizer.MarketConditions memory conditions = FeeOptimizer.MarketConditions({
-            volatility: 25,
-            volume24h: 1000000e6,
-            spread: 10,
-            liquidity: 5000000e6,
-            timestamp: block.timestamp
+            volatility: 25, volume24h: 1000000e6, spread: 10, liquidity: 5000000e6, timestamp: block.timestamp
         });
 
         FeeOptimizer.FeeConfig memory config = FeeOptimizer.getRecommendedFeeConfig(0);

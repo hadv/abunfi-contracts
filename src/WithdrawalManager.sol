@@ -452,7 +452,15 @@ contract WithdrawalManager is Ownable, ReentrancyGuard {
      *      - Could incorporate user-specific interest calculations
      *      - Could use vault's totalAssets() and totalShares() for dynamic pricing
      */
-    function _getWithdrawalAmount(address, /* user */ uint256 shares) internal view returns (uint256) {
+    function _getWithdrawalAmount(
+        address,
+        /* user */
+        uint256 shares
+    )
+        internal
+        view
+        returns (uint256)
+    {
         // For now, use a simple conversion: shares are in 18 decimals, USDC is in 6 decimals
         // So we need to divide by 1e12 to convert from shares to USDC amount
         return shares / 1e12;

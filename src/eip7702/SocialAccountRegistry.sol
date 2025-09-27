@@ -154,11 +154,7 @@ contract SocialAccountRegistry is Ownable, ReentrancyGuard {
      * @dev Re-verify a social account with updated proof
      * @param proof Updated verification proof
      */
-    function reverifyAccount(VerificationProof calldata proof)
-        external
-        nonReentrant
-        onlyValidPlatform(proof.platform)
-    {
+    function reverifyAccount(VerificationProof calldata proof) external nonReentrant onlyValidPlatform(proof.platform) {
         require(_verifyRiscZeroProof(proof), "Invalid RISC Zero proof");
 
         SocialAccount storage account = socialAccounts[proof.socialAccountHash];

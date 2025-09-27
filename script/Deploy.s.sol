@@ -198,10 +198,7 @@ contract Deploy is Script {
         return strategy;
     }
 
-    function _deployLiquidStakingStrategy(address usdcAddress, address vault)
-        internal
-        returns (LiquidStakingStrategy)
-    {
+    function _deployLiquidStakingStrategy(address usdcAddress, address vault) internal returns (LiquidStakingStrategy) {
         console.log("\n8. Deploying LiquidStakingStrategy...");
 
         // Deploy mock staking token for testing

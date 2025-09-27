@@ -193,10 +193,7 @@ contract DeploySepolia is Script {
         return strategy;
     }
 
-    function _deployLiquidStakingStrategy(address usdcAddress, address vault)
-        internal
-        returns (LiquidStakingStrategy)
-    {
+    function _deployLiquidStakingStrategy(address usdcAddress, address vault) internal returns (LiquidStakingStrategy) {
         console.log("\n8. Deploying LiquidStakingStrategy...");
 
         MockERC20 mockStETH = new MockERC20("Liquid Staked ETH", "stETH", 18);

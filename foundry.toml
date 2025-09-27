@@ -72,3 +72,8 @@ invariant = { runs = 50 }  # Reduced for faster CI
 cache = true
 cache_path = "cache"
 force = false
+
+[profile.ci.fmt]
+# Only format our source files, not library files
+include = ["src/**/*.sol", "script/**/*.sol", "test/**/*.sol"]
+exclude = ["lib/**/*.sol"]

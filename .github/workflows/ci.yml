@@ -101,7 +101,9 @@ jobs:
         run: forge install --no-commit || true
 
       - name: Check Solidity formatting
-        run: forge fmt --check
+        run: |
+          echo "Checking formatting for source files only..."
+          forge fmt src/ script/ test/ --check
 
   # coverage:
   #   runs-on: ubuntu-latest

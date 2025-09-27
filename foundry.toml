@@ -52,10 +52,8 @@ mumbai = { key = "${POLYGONSCAN_API_KEY}" }
 
 # Formatter configuration
 [fmt]
-# Only format our source files, not library files
-include = ["src/**/*.sol", "script/**/*.sol", "test/**/*.sol"]
+# Exclude library files from formatting
 exclude = ["lib/**/*.sol"]
-# Ensure consistent formatting across the codebase
 
 # Test configuration
 [profile.default.fuzz]
@@ -73,7 +71,4 @@ cache = true
 cache_path = "cache"
 force = false
 
-[profile.ci.fmt]
-# Only format our source files, not library files
-include = ["src/**/*.sol", "script/**/*.sol", "test/**/*.sol"]
-exclude = ["lib/**/*.sol"]
+

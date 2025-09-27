@@ -125,11 +125,7 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
                 StablecoinRangeManager.calculateOptimalRange(currentTick, rangeConfig.rangeWidth);
 
             currentPosition = StablecoinRangeManager.PositionInfo({
-                tickLower: tickLower,
-                tickUpper: tickUpper,
-                liquidity: 0,
-                lastUpdate: block.timestamp,
-                isActive: true
+                tickLower: tickLower, tickUpper: tickUpper, liquidity: 0, lastUpdate: block.timestamp, isActive: true
             });
         }
 
@@ -274,11 +270,12 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
     function getAPY() external view override returns (uint256) {
         if (totalDeposited == 0) return 0;
 
-        return FeeOptimizer.estimateAPY(
-            marketConditions,
-            currentFee,
-            5000 // Assume 50% liquidity share for estimation
-        );
+        return
+            FeeOptimizer.estimateAPY(
+                marketConditions,
+                currentFee,
+                5000 // Assume 50% liquidity share for estimation
+            );
     }
 
     /**
@@ -399,11 +396,9 @@ contract UniswapV4FairFlowStablecoinStrategy is IAbunfiStrategy, Ownable, Reentr
     function _checkAndUpdateFees() internal {
         if (!feeConfig.dynamicEnabled) return;
 
-        if (
-            FeeOptimizer.needsFeeUpdate(
+        if (FeeOptimizer.needsFeeUpdate(
                 lastFeeUpdateTime, feeConfig.updateFrequency, marketConditions, currentFee, feeConfig
-            )
-        ) {
+            )) {
             uint24 newFee = FeeOptimizer.calculateOptimalFee(marketConditions, feeConfig);
 
             if (newFee != currentFee) {

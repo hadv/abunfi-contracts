@@ -94,7 +94,7 @@ contract MockAaveDataProvider {
     /**
      * @dev Get user reserve data
      */
-    function getUserReserveData(address asset, address /* user */ )
+    function getUserReserveData(address asset, address /* user */)
         external
         view
         returns (

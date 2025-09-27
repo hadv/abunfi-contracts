@@ -260,7 +260,8 @@ contract StrategyManager is Ownable, ReentrancyGuard {
             uint256 currentAlloc = currentAllocations[i];
 
             // Calculate deviation percentage
-            uint256 deviation = currentAlloc > expectedAllocation
+            uint256 deviation =
+                currentAlloc > expectedAllocation
                 ? currentAlloc - expectedAllocation
                 : expectedAllocation - currentAlloc;
             uint256 deviationBps = (deviation * BASIS_POINTS) / totalCurrent;

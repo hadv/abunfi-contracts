@@ -45,12 +45,7 @@ contract MockUniswapV4PoolManager is IPoolManager {
         tick = _sqrtPriceToTick(sqrtPriceX96);
 
         pools[poolId] = PoolState({
-            sqrtPriceX96: sqrtPriceX96,
-            tick: tick,
-            protocolFee: 0,
-            lpFee: key.fee,
-            liquidity: 0,
-            initialized: true
+            sqrtPriceX96: sqrtPriceX96, tick: tick, protocolFee: 0, lpFee: key.fee, liquidity: 0, initialized: true
         });
 
         emit PoolInitialized(poolId, sqrtPriceX96, tick);

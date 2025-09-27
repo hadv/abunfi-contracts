@@ -103,9 +103,7 @@ contract RiskBasedSystemTest is Test {
         vault.deposit(amount);
     }
 
-    function _approveAndDepositWithRisk(address user, uint256 amount, RiskProfileManager.RiskLevel riskLevel)
-        internal
-    {
+    function _approveAndDepositWithRisk(address user, uint256 amount, RiskProfileManager.RiskLevel riskLevel) internal {
         vm.prank(user);
         vault.depositWithRiskLevel(amount, riskLevel);
     }

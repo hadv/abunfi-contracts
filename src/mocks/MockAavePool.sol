@@ -109,7 +109,7 @@ contract MockAavePool {
         });
     }
 
-    function getUserReserveData(address _asset, address /* user */ )
+    function getUserReserveData(address _asset, address /* user */)
         external
         view
         returns (

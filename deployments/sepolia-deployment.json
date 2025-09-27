@@ -1,0 +1,63 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deploymentDate": "2024-09-26",
+  "contracts": {
+    "core": {
+      "USDC": {
+        "address": "0x9C34AA00150AAa994F7d53f029c4208c814cdeaA",
+        "etherscan": "https://sepolia.etherscan.io/address/0x9C34AA00150AAa994F7d53f029c4208c814cdeaA"
+      },
+      "AbunfiVault": {
+        "address": "0x094eDDFADDd34336853Ca4f738165f39D78532EE",
+        "etherscan": "https://sepolia.etherscan.io/address/0x094eDDFADDd34336853Ca4f738165f39D78532EE"
+      },
+      "StrategyManager": {
+        "address": "0x939BBFF4BcCCa5A92eCc55Ca8710987bab266848",
+        "etherscan": "https://sepolia.etherscan.io/address/0x939BBFF4BcCCa5A92eCc55Ca8710987bab266848"
+      }
+    },
+    "strategies": {
+      "AaveStrategy": {
+        "address": "0xC29FA5A76E45D59731928CFCAEfDA7715da086f3",
+        "weight": 4000,
+        "riskScore": 30,
+        "maxAllocation": 5000,
+        "minAllocation": 1000,
+        "etherscan": "https://sepolia.etherscan.io/address/0xC29FA5A76E45D59731928CFCAEfDA7715da086f3"
+      },
+      "CompoundStrategy": {
+        "address": "0x050B21B2191eA6dEB0f12fD4fd40C7b59f6E397a",
+        "weight": 3500,
+        "riskScore": 25,
+        "maxAllocation": 4500,
+        "minAllocation": 1000,
+        "etherscan": "https://sepolia.etherscan.io/address/0x050B21B2191eA6dEB0f12fD4fd40C7b59f6E397a"
+      },
+      "LiquidStakingStrategy": {
+        "address": "0x9492368373a17be8Ed82Ea32a0B3e405782123E7",
+        "weight": 2500,
+        "riskScore": 40,
+        "maxAllocation": 3000,
+        "minAllocation": 500,
+        "etherscan": "https://sepolia.etherscan.io/address/0x9492368373a17be8Ed82Ea32a0B3e405782123E7"
+      }
+    }
+  },
+  "deployment": {
+    "status": "COMPLETED",
+    "verification": "VERIFIED",
+    "scripts": [
+      "DeployCore.s.sol",
+      "DeployStrategies.s.sol",
+      "ConfigureSystem.s.sol"
+    ],
+    "notes": [
+      "All core contracts deployed successfully",
+      "All strategy contracts deployed successfully",
+      "All contracts verified on Etherscan",
+      "Strategies configured and added to StrategyManager",
+      "System ready for testing and integration"
+    ]
+  }
+}

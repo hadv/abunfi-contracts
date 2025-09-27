@@ -1,3 +1,7 @@
+[profile.fs_permissions]
+read = ["./deployments", "./broadcast"]
+write = ["./deployments", "./broadcast"]
+
 [profile.default]
 src = "src"
 out = "out"
@@ -46,6 +50,11 @@ sepolia = { key = "${ETHERSCAN_API_KEY}" }
 arbitrum_goerli = { key = "${ARBISCAN_API_KEY}" }
 mumbai = { key = "${POLYGONSCAN_API_KEY}" }
 
+# Formatter configuration
+[fmt]
+# Exclude library files from formatting
+exclude = ["lib/**/*.sol"]
+
 # Test configuration
 [profile.default.fuzz]
 runs = 1000
@@ -61,3 +70,5 @@ invariant = { runs = 50 }  # Reduced for faster CI
 cache = true
 cache_path = "cache"
 force = false
+
+

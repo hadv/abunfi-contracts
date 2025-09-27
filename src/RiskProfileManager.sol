@@ -159,10 +159,7 @@ contract RiskProfileManager is Ownable, ReentrancyGuard {
 
         // Update allocation
         riskAllocations[level] = RiskAllocation({
-            strategies: strategies,
-            allocations: allocations,
-            maxRiskScore: maxRiskScore,
-            description: description
+            strategies: strategies, allocations: allocations, maxRiskScore: maxRiskScore, description: description
         });
 
         emit RiskAllocationUpdated(level, strategies, allocations);

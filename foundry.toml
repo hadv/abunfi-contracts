@@ -55,6 +55,7 @@ mumbai = { key = "${POLYGONSCAN_API_KEY}" }
 # Only format our source files, not library files
 include = ["src/**/*.sol", "script/**/*.sol", "test/**/*.sol"]
 exclude = ["lib/**/*.sol"]
+# Ensure consistent formatting across the codebase
 
 # Test configuration
 [profile.default.fuzz]

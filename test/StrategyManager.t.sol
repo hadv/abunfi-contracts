@@ -358,9 +358,12 @@ contract StrategyManagerTest is Test {
     }
 
     // Fuzz Tests
-    function testFuzz_AddStrategy_ValidParameters(uint256 weight, uint256 riskScore, uint256 maxAlloc, uint256 minAlloc)
-        public
-    {
+    function testFuzz_AddStrategy_ValidParameters(
+        uint256 weight,
+        uint256 riskScore,
+        uint256 maxAlloc,
+        uint256 minAlloc
+    ) public {
         weight = bound(weight, 1, 10000);
         riskScore = bound(riskScore, 1, 100);
         maxAlloc = bound(maxAlloc, 1000, 10000);

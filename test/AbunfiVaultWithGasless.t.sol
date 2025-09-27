@@ -114,10 +114,7 @@ contract AbunfiVaultWithGaslessTest is Test {
         });
 
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
-            account: user1,
-            maxFeePerGas: userOp.maxFeePerGas,
-            gasLimit: userOp.gasLimit,
-            signature: ""
+            account: user1, maxFeePerGas: userOp.maxFeePerGas, gasLimit: userOp.gasLimit, signature: ""
         });
 
         // Validate that paymaster would sponsor this vault operation
@@ -166,10 +163,7 @@ contract AbunfiVaultWithGaslessTest is Test {
         });
 
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
-            account: user1,
-            maxFeePerGas: userOp.maxFeePerGas,
-            gasLimit: userOp.gasLimit,
-            signature: ""
+            account: user1, maxFeePerGas: userOp.maxFeePerGas, gasLimit: userOp.gasLimit, signature: ""
         });
 
         // Should fail due to gas limits
@@ -211,10 +205,7 @@ contract AbunfiVaultWithGaslessTest is Test {
         });
 
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
-            account: user1,
-            maxFeePerGas: userOp.maxFeePerGas,
-            gasLimit: userOp.gasLimit,
-            signature: ""
+            account: user1, maxFeePerGas: userOp.maxFeePerGas, gasLimit: userOp.gasLimit, signature: ""
         });
 
         // Should fail without whitelist

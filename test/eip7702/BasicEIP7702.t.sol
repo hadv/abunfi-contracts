@@ -185,10 +185,7 @@ contract BasicEIP7702Test is Test {
         });
 
         EIP7702Paymaster.UserOperationContext memory context = EIP7702Paymaster.UserOperationContext({
-            account: user1,
-            maxFeePerGas: userOp.maxFeePerGas,
-            gasLimit: userOp.gasLimit,
-            signature: ""
+            account: user1, maxFeePerGas: userOp.maxFeePerGas, gasLimit: userOp.gasLimit, signature: ""
         });
 
         // Should fail validation when paused

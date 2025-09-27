@@ -50,6 +50,12 @@ sepolia = { key = "${ETHERSCAN_API_KEY}" }
 arbitrum_goerli = { key = "${ARBISCAN_API_KEY}" }
 mumbai = { key = "${POLYGONSCAN_API_KEY}" }
 
+# Formatter configuration
+[fmt]
+# Only format our source files, not library files
+include = ["src/**/*.sol", "script/**/*.sol", "test/**/*.sol"]
+exclude = ["lib/**/*.sol"]
+
 # Test configuration
 [profile.default.fuzz]
 runs = 1000

@@ -14,7 +14,7 @@ import "../src/eip7702/EIP7702Paymaster.sol";
 contract DeploySocialVerification is Script {
     // Configuration
     address public constant RISC_ZERO_VERIFIER_KEY = 0x1234567890123456789012345678901234567890; // Replace with actual key
-    uint256 public constant INITIAL_PAYMASTER_FUNDING = 2 ether;
+    uint256 public constant INITIAL_PAYMASTER_FUNDING = 0.5 ether;
 
     // Deployed contract addresses
     SocialAccountRegistry public socialRegistry;
@@ -53,6 +53,19 @@ contract DeploySocialVerification is Script {
 
         // Step 5: Fund the paymaster
         console.log("\n5. Funding paymaster...");
+
+        // Check if deployer has sufficient balance
+        require(
+            deployer.balance >= INITIAL_PAYMASTER_FUNDING,
+            string(abi.encodePacked(
+                "Insufficient balance for paymaster funding. Required: ",
+                vm.toString(INITIAL_PAYMASTER_FUNDING / 1e18),
+                " ETH, Available: ",
+                vm.toString(deployer.balance / 1e18),
+                " ETH"
+            ))
+        );
+
         payable(address(paymaster)).transfer(INITIAL_PAYMASTER_FUNDING);
         console.log("Paymaster funded with:", INITIAL_PAYMASTER_FUNDING / 1e18, "ETH");
 

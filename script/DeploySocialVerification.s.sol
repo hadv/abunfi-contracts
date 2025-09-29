@@ -57,13 +57,15 @@ contract DeploySocialVerification is Script {
         // Check if deployer has sufficient balance
         require(
             deployer.balance >= INITIAL_PAYMASTER_FUNDING,
-            string(abi.encodePacked(
-                "Insufficient balance for paymaster funding. Required: ",
-                vm.toString(INITIAL_PAYMASTER_FUNDING / 1e18),
-                " ETH, Available: ",
-                vm.toString(deployer.balance / 1e18),
-                " ETH"
-            ))
+            string(
+                abi.encodePacked(
+                    "Insufficient balance for paymaster funding. Required: ",
+                    vm.toString(INITIAL_PAYMASTER_FUNDING / 1e18),
+                    " ETH, Available: ",
+                    vm.toString(deployer.balance / 1e18),
+                    " ETH"
+                )
+            )
         );
 
         payable(address(paymaster)).transfer(INITIAL_PAYMASTER_FUNDING);
